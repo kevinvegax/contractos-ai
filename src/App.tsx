@@ -1,121 +1,136 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useEffect, useState } from 'react'
 import './App.css'
 
+type Contractor = {
+  id: number
+  name: string
+  specialty: string
+  city: string
+}
+
+type ApiState =
+  | { status: 'loading'; contractors: Contractor[]; error: null }
+  | { status: 'ready'; contractors: Contractor[]; error: null }
+  | { status: 'error'; contractors: Contractor[]; error: string }
+
+async function fetchContractors() {
+  const response = await fetch('/api/contractors')
+  const payload = await response.json()
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'No se pudo cargar la API')
+  }
+
+  return payload.contractors as Contractor[]
+}
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [apiState, setApiState] = useState<ApiState>({
+    status: 'loading',
+    contractors: [],
+    error: null,
+  })
+
+  async function reloadContractors() {
+    setApiState((current) => ({
+      status: 'loading',
+      contractors: current.contractors,
+      error: null,
+    }))
+
+    try {
+      const contractors = await fetchContractors()
+
+      setApiState({
+        status: 'ready',
+        contractors,
+        error: null,
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'No se pudo cargar la API'
+
+      setApiState((current) => ({
+        status: 'error',
+        contractors: current.contractors,
+        error: message,
+      }))
+    }
+  }
+
+  useEffect(() => {
+    let ignore = false
+
+    async function loadInitialContractors() {
+      try {
+        const contractors = await fetchContractors()
+
+        if (!ignore) {
+          setApiState({
+            status: 'ready',
+            contractors,
+            error: null,
+          })
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'No se pudo cargar la API'
+
+        if (!ignore) {
+          setApiState({
+            status: 'error',
+            contractors: [],
+            error: message,
+          })
+        }
+      }
+    }
+
+    void loadInitialContractors()
+
+    return () => {
+      ignore = true
+    }
+  }, [])
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <main className="app-shell">
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">Vercel API + Postgres local</p>
+            <h1>Contratistas</h1>
+          </div>
+          <button
+            type="button"
+            onClick={() => void reloadContractors()}
+            disabled={apiState.status === 'loading'}
+          >
+            {apiState.status === 'loading' ? 'Cargando' : 'Recargar'}
+          </button>
         </div>
-        <div>
-          <h1>Get started | Test</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test 3<code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
 
-      <div className="ticks"></div>
+        {apiState.status === 'error' && (
+          <p className="status error">{apiState.error}</p>
+        )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
+        {apiState.status === 'loading' && apiState.contractors.length === 0 && (
+          <p className="status">Consultando /api/contractors...</p>
+        )}
+
+        {apiState.contractors.length > 0 && (
+          <ul className="contractor-list">
+            {apiState.contractors.map((contractor) => (
+              <li key={contractor.id}>
+                <strong>{contractor.name}</strong>
+                <span>{contractor.specialty}</span>
+                <small>{contractor.city}</small>
+              </li>
+            ))}
           </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
+        )}
       </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    </main>
   )
 }
 
