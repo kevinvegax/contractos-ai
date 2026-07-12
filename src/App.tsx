@@ -97,7 +97,7 @@ function App() {
       <section className="panel">
         <div className="panel-header">
           <div>
-            <p className="eyebrow">Vercel API + Postgres local</p>
+            <p className="eyebrow">Vercel API + Postgres local | Staging enviromnment</p>
             <h1>Postgres</h1>
           </div>
           <button
