@@ -41,17 +41,16 @@
   border-bottom: 1px solid #ffd7d3;
 }
 
-.contractor-list {
+.postgres-info {
   display: grid;
   gap: 12px;
   margin: 0;
   padding: 24px;
-  list-style: none;
 }
 
-.contractor-list li {
+.postgres-info div {
   display: grid;
-  grid-template-columns: 1.2fr 1fr auto;
+  grid-template-columns: 140px 1fr;
   align-items: center;
   gap: 12px;
   min-height: 56px;
@@ -61,14 +60,18 @@
   background: var(--bg);
 }
 
-.contractor-list strong {
-  color: var(--text-h);
-  font-size: 16px;
+.postgres-info dt {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
-.contractor-list span,
-.contractor-list small {
-  color: var(--muted);
+.postgres-info dd {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 16px;
+  overflow-wrap: anywhere;
 }
 
 button {
@@ -95,7 +98,7 @@ button:disabled {
   }
 
   .panel-header,
-  .contractor-list li {
+  .postgres-info div {
     grid-template-columns: 1fr;
   }
 

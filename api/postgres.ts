@@ -1,22 +1,18 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { Pool } from 'pg'
 
-type Contractor = {
-  id: number
-  name: string
-  specialty: string
-  city: string
+type PostgresInfo = {
+  current_time: string
+  current_date: string
+  database_name: string
 }
-
-const localDatabaseUrl =
-  'postgresql://contractors:contractors@localhost:5432/contractors_ai'
 
 let pool: Pool | undefined
 
 function getPool() {
   if (!pool) {
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL ?? localDatabaseUrl,
+      connectionString: process.env.DATABASE_URL,
       max: 1,
     })
   }
@@ -45,20 +41,19 @@ export default async function handler(
   }
 
   try {
-    const db = getPool()
-
-    const result = await db.query<Contractor>(`
-      SELECT id, name, specialty, city
-      FROM contractors
-      ORDER BY id ASC
+    const result = await getPool().query<PostgresInfo>(`
+      SELECT
+        NOW()::text AS current_time,
+        CURRENT_DATE::text AS current_date,
+        CURRENT_DATABASE() AS database_name
     `)
 
-    sendJson(response, 200, { contractors: result.rows })
+    sendJson(response, 200, { postgres: result.rows[0] })
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error)
 
     sendJson(response, 500, {
-      error: 'No se pudo consultar Postgres local',
+      error: 'No se pudo consultar Postgres',
       detail,
     })
   }

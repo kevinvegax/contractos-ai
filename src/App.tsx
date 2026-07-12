@@ -1,49 +1,48 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 
-type Contractor = {
-  id: number
-  name: string
-  specialty: string
-  city: string
+type PostgresInfo = {
+  current_time: string
+  current_date: string
+  database_name: string
 }
 
 type ApiState =
-  | { status: 'loading'; contractors: Contractor[]; error: null }
-  | { status: 'ready'; contractors: Contractor[]; error: null }
-  | { status: 'error'; contractors: Contractor[]; error: string }
+  | { status: 'loading'; info: PostgresInfo | null; error: null }
+  | { status: 'ready'; info: PostgresInfo; error: null }
+  | { status: 'error'; info: PostgresInfo | null; error: string }
 
-async function fetchContractors() {
-  const response = await fetch('/api/contractors')
+async function fetchPostgresInfo() {
+  const response = await fetch('/api/postgres')
   const payload = await response.json()
 
   if (!response.ok) {
     throw new Error(payload.error ?? 'No se pudo cargar la API')
   }
 
-  return payload.contractors as Contractor[]
+  return payload.postgres as PostgresInfo
 }
 
 function App() {
   const [apiState, setApiState] = useState<ApiState>({
     status: 'loading',
-    contractors: [],
+    info: null,
     error: null,
   })
 
-  async function reloadContractors() {
+  async function reloadPostgresInfo() {
     setApiState((current) => ({
       status: 'loading',
-      contractors: current.contractors,
+      info: current.info,
       error: null,
     }))
 
     try {
-      const contractors = await fetchContractors()
+      const info = await fetchPostgresInfo()
 
       setApiState({
         status: 'ready',
-        contractors,
+        info,
         error: null,
       })
     } catch (error) {
@@ -52,7 +51,7 @@ function App() {
 
       setApiState((current) => ({
         status: 'error',
-        contractors: current.contractors,
+        info: current.info,
         error: message,
       }))
     }
@@ -61,14 +60,14 @@ function App() {
   useEffect(() => {
     let ignore = false
 
-    async function loadInitialContractors() {
+    async function loadInitialPostgresInfo() {
       try {
-        const contractors = await fetchContractors()
+        const info = await fetchPostgresInfo()
 
         if (!ignore) {
           setApiState({
             status: 'ready',
-            contractors,
+            info,
             error: null,
           })
         }
@@ -79,14 +78,14 @@ function App() {
         if (!ignore) {
           setApiState({
             status: 'error',
-            contractors: [],
+            info: null,
             error: message,
           })
         }
       }
     }
 
-    void loadInitialContractors()
+    void loadInitialPostgresInfo()
 
     return () => {
       ignore = true
@@ -99,11 +98,11 @@ function App() {
         <div className="panel-header">
           <div>
             <p className="eyebrow">Vercel API + Postgres local</p>
-            <h1>Contratistas</h1>
+            <h1>Postgres</h1>
           </div>
           <button
             type="button"
-            onClick={() => void reloadContractors()}
+            onClick={() => void reloadPostgresInfo()}
             disabled={apiState.status === 'loading'}
           >
             {apiState.status === 'loading' ? 'Cargando' : 'Recargar'}
@@ -114,20 +113,25 @@ function App() {
           <p className="status error">{apiState.error}</p>
         )}
 
-        {apiState.status === 'loading' && apiState.contractors.length === 0 && (
-          <p className="status">Consultando /api/contractors...</p>
+        {apiState.status === 'loading' && !apiState.info && (
+          <p className="status">Consultando /api/postgres...</p>
         )}
 
-        {apiState.contractors.length > 0 && (
-          <ul className="contractor-list">
-            {apiState.contractors.map((contractor) => (
-              <li key={contractor.id}>
-                <strong>{contractor.name}</strong>
-                <span>{contractor.specialty}</span>
-                <small>{contractor.city}</small>
-              </li>
-            ))}
-          </ul>
+        {apiState.info && (
+          <dl className="postgres-info">
+            <div>
+              <dt>Base de datos</dt>
+              <dd>{apiState.info.database_name}</dd>
+            </div>
+            <div>
+              <dt>Fecha</dt>
+              <dd>{apiState.info.current_date}</dd>
+            </div>
+            <div>
+              <dt>Hora</dt>
+              <dd>{apiState.info.current_time}</dd>
+            </div>
+          </dl>
         )}
       </section>
     </main>
