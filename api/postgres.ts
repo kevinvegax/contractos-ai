@@ -7,6 +7,12 @@ type PostgresInfo = {
   database_name: string
 }
 
+type MigrationDemoItem = {
+  id: number
+  label: string
+  created_at: string
+}
+
 let pool: Pool | undefined
 
 function getPool() {
@@ -44,14 +50,27 @@ export default async function handler(
   }
 
   try {
-    const result = await getPool().query<PostgresInfo>(`
-      SELECT
-        NOW()::text AS current_time,
-        CURRENT_DATE::text AS current_date,
-        CURRENT_DATABASE() AS database_name
-    `)
+    const [postgresResult, migrationDemoResult] = await Promise.all([
+      getPool().query<PostgresInfo>(`
+        SELECT
+          NOW()::text AS current_time,
+          CURRENT_DATE::text AS current_date,
+          CURRENT_DATABASE() AS database_name
+      `),
+      getPool().query<MigrationDemoItem>(`
+        SELECT
+          id,
+          label,
+          created_at::text AS created_at
+        FROM migration_demo_items
+        ORDER BY id
+      `),
+    ])
 
-    sendJson(response, 200, { postgres: result.rows[0] })
+    sendJson(response, 200, {
+      postgres: postgresResult.rows[0],
+      migrationDemoItems: migrationDemoResult.rows,
+    })
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error)
 
