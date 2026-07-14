@@ -12,7 +12,10 @@ let pool: Pool | undefined
 function getPool() {
   if (!pool) {
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString:
+        process.env.PRODUCTION_DATABASE_URL ??
+        process.env.STAGING_DATABASE_URL ??
+        process.env.DATABASE_URL,
       max: 1,
     })
   }
