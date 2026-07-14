@@ -91,29 +91,29 @@ jobs:
           }
           NODE
 
-      - name: Run Flyway migrations
-        shell: bash
-        run: |
-          set -euo pipefail
+      # - name: Run Flyway migrations
+      #   shell: bash
+      #   run: |
+      #     set -euo pipefail
 
-          docker_args=(
-            --rm
-            -v "${PWD}/migrations:/flyway/sql:ro"
-            -e FLYWAY_URL
-          )
+      #     docker_args=(
+      #       --rm
+      #       -v "${PWD}/migrations:/flyway/sql:ro"
+      #       -e FLYWAY_URL
+      #     )
 
-          if [ -n "${FLYWAY_USER:-}" ]; then
-            docker_args+=(-e FLYWAY_USER)
-          fi
+      #     if [ -n "${FLYWAY_USER:-}" ]; then
+      #       docker_args+=(-e FLYWAY_USER)
+      #     fi
 
-          if [ -n "${FLYWAY_PASSWORD:-}" ]; then
-            docker_args+=(-e FLYWAY_PASSWORD)
-          fi
+      #     if [ -n "${FLYWAY_PASSWORD:-}" ]; then
+      #       docker_args+=(-e FLYWAY_PASSWORD)
+      #     fi
 
-          docker run "${docker_args[@]}" "$FLYWAY_IMAGE" \
-            -locations=filesystem:/flyway/sql \
-            -connectRetries=10 \
-            migrate
+      #     docker run "${docker_args[@]}" "$FLYWAY_IMAGE" \
+      #       -locations=filesystem:/flyway/sql \
+      #       -connectRetries=10 \
+      #       migrate
 
   # migrate-production:
   #   name: Run production migrations
