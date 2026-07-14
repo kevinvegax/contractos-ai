@@ -7,42 +7,58 @@ type PostgresInfo = {
   database_name: string
 }
 
+type MigrationDemoItem = {
+  id: number
+  label: string
+  created_at: string
+}
+
+type PostgresPayload = {
+  postgres: PostgresInfo
+  migrationDemoItems: MigrationDemoItem[]
+}
+
 type ApiState =
-  | { status: 'loading'; info: PostgresInfo | null; error: null }
-  | { status: 'ready'; info: PostgresInfo; error: null }
-  | { status: 'error'; info: PostgresInfo | null; error: string }
+  | { status: 'loading'; payload: PostgresPayload | null; error: null }
+  | { status: 'ready'; payload: PostgresPayload; error: null }
+  | { status: 'error'; payload: PostgresPayload | null; error: string }
 
 async function fetchPostgresInfo() {
   const response = await fetch('/api/postgres')
-  const payload = await response.json()
-
-  if (!response.ok) {
-    throw new Error(payload.error ?? 'No se pudo cargar la API')
+  const payload = (await response.json()) as Partial<PostgresPayload> & {
+    error?: string
+    detail?: string
   }
 
-  return payload.postgres as PostgresInfo
+  if (!response.ok) {
+    const message = [payload.error, payload.detail].filter(Boolean).join(': ')
+
+    throw new Error(message || 'No se pudo cargar la API')
+  }
+
+  return payload as PostgresPayload
 }
 
 function App() {
   const [apiState, setApiState] = useState<ApiState>({
     status: 'loading',
-    info: null,
+    payload: null,
     error: null,
   })
 
   async function reloadPostgresInfo() {
     setApiState((current) => ({
       status: 'loading',
-      info: current.info,
+      payload: current.payload,
       error: null,
     }))
 
     try {
-      const info = await fetchPostgresInfo()
+      const payload = await fetchPostgresInfo()
 
       setApiState({
         status: 'ready',
-        info,
+        payload,
         error: null,
       })
     } catch (error) {
@@ -51,7 +67,7 @@ function App() {
 
       setApiState((current) => ({
         status: 'error',
-        info: current.info,
+        payload: current.payload,
         error: message,
       }))
     }
@@ -62,12 +78,12 @@ function App() {
 
     async function loadInitialPostgresInfo() {
       try {
-        const info = await fetchPostgresInfo()
+        const payload = await fetchPostgresInfo()
 
         if (!ignore) {
           setApiState({
             status: 'ready',
-            info,
+            payload,
             error: null,
           })
         }
@@ -78,7 +94,7 @@ function App() {
         if (!ignore) {
           setApiState({
             status: 'error',
-            info: null,
+            payload: null,
             error: message,
           })
         }
@@ -113,25 +129,47 @@ function App() {
           <p className="status error">{apiState.error}</p>
         )}
 
-        {apiState.status === 'loading' && !apiState.info && (
+        {apiState.status === 'loading' && !apiState.payload && (
           <p className="status">Consultando /api/postgres...</p>
         )}
 
-        {apiState.info && (
-          <dl className="postgres-info">
-            <div>
-              <dt>Base de datos</dt>
-              <dd>{apiState.info.database_name}</dd>
-            </div>
-            <div>
-              <dt>Fecha</dt>
-              <dd>{apiState.info.current_date}</dd>
-            </div>
-            <div>
-              <dt>Hora</dt>
-              <dd>{apiState.info.current_time}</dd>
-            </div>
-          </dl>
+        {apiState.payload && (
+          <div className="panel-body">
+            <dl className="postgres-info">
+              <div>
+                <dt>Base de datos</dt>
+                <dd>{apiState.payload.postgres.database_name}</dd>
+              </div>
+              <div>
+                <dt>Fecha</dt>
+                <dd>{apiState.payload.postgres.current_date}</dd>
+              </div>
+              <div>
+                <dt>Hora</dt>
+                <dd>{apiState.payload.postgres.current_time}</dd>
+              </div>
+            </dl>
+
+            <section className="migration-demo" aria-labelledby="migration-title">
+              <div className="section-header">
+                <p className="eyebrow">Tabla creada por migracion</p>
+                <h2 id="migration-title">migration_demo_items</h2>
+              </div>
+
+              {apiState.payload.migrationDemoItems.length > 0 ? (
+                <ul className="demo-list">
+                  {apiState.payload.migrationDemoItems.map((item) => (
+                    <li key={item.id}>
+                      <span>{item.label}</span>
+                      <time dateTime={item.created_at}>{item.created_at}</time>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="empty-state">No hay registros en la tabla.</p>
+              )}
+            </section>
+          </div>
         )}
       </section>
     </main>

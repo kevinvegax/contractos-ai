@@ -41,11 +41,16 @@
   border-bottom: 1px solid #ffd7d3;
 }
 
+.panel-body {
+  display: grid;
+  gap: 24px;
+  padding: 24px;
+}
+
 .postgres-info {
   display: grid;
   gap: 12px;
   margin: 0;
-  padding: 24px;
 }
 
 .postgres-info div {
@@ -74,6 +79,63 @@
   overflow-wrap: anywhere;
 }
 
+.migration-demo {
+  display: grid;
+  gap: 14px;
+}
+
+.section-header {
+  display: grid;
+  gap: 4px;
+}
+
+h2 {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.demo-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.demo-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.demo-list span {
+  color: var(--text-h);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.demo-list time,
+.empty-state {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.empty-state {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
 button {
   min-height: 40px;
   padding: 0 14px;
@@ -98,7 +160,8 @@ button:disabled {
   }
 
   .panel-header,
-  .postgres-info div {
+  .postgres-info div,
+  .demo-list li {
     grid-template-columns: 1fr;
   }
 
