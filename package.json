@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "security:hash-password": "node scripts/hash-super-admin-password.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
