@@ -48,7 +48,39 @@ export function requireMethod(
   }
 }
 
+function parseJsonObject(payload: unknown) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new HttpError(400, 'Request body must be a JSON object.')
+  }
+
+  return payload as Record<string, unknown>
+}
+
 export async function readJsonObject(request: IncomingMessage) {
+  const parsedBody = (request as IncomingMessage & { body?: unknown }).body
+
+  if (parsedBody !== undefined) {
+    if (typeof parsedBody === 'string' || Buffer.isBuffer(parsedBody)) {
+      try {
+        return parseJsonObject(
+          JSON.parse(
+            typeof parsedBody === 'string'
+              ? parsedBody
+              : parsedBody.toString('utf8'),
+          ),
+        )
+      } catch (error) {
+        if (error instanceof HttpError) {
+          throw error
+        }
+
+        throw new HttpError(400, 'Request body must be valid JSON.')
+      }
+    }
+
+    return parseJsonObject(parsedBody)
+  }
+
   const chunks: Buffer[] = []
 
   for await (const chunk of request) {
@@ -62,13 +94,7 @@ export async function readJsonObject(request: IncomingMessage) {
   }
 
   try {
-    const payload: unknown = JSON.parse(rawBody)
-
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      throw new HttpError(400, 'Request body must be a JSON object.')
-    }
-
-    return payload as Record<string, unknown>
+    return parseJsonObject(JSON.parse(rawBody))
   } catch (error) {
     if (error instanceof HttpError) {
       throw error

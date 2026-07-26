@@ -27,6 +27,7 @@ export function SuperAdminSignInForm({
         <input
           type="email"
           value={login.email}
+          required
           autoComplete="username"
           onChange={(event) =>
             setLogin((current) => ({
@@ -42,6 +43,7 @@ export function SuperAdminSignInForm({
         <input
           type="password"
           value={login.password}
+          required
           autoComplete="current-password"
           onChange={(event) =>
             setLogin((current) => ({
