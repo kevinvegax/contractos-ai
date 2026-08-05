@@ -124,7 +124,7 @@ h2 {
   gap: 10px;
 }
 
-.portal-tabs button {
+.portal-tabs a {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -135,10 +135,11 @@ h2 {
   border-radius: 8px;
   color: #e5edf6;
   background: rgba(255, 255, 255, 0.04);
+  text-decoration: none;
   text-align: left;
 }
 
-.portal-tabs button.active {
+.portal-tabs a.active {
   border-color: #7cc3ff;
   color: #ffffff;
   background: rgba(35, 100, 170, 0.55);

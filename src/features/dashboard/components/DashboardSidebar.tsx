@@ -1,46 +1,41 @@
+import { NavLink } from 'react-router-dom'
+
 import type { AuthState } from '../../auth/types'
-import type { Portal } from '../../../types/portal'
 
 type DashboardSidebarProps = {
-  activePortal: Portal
   superAdminAuth: AuthState
   adminAuth: AuthState
-  onPortalChange: (portal: Portal) => void
 }
 
 export function DashboardSidebar({
-  activePortal,
   superAdminAuth,
   adminAuth,
-  onPortalChange,
 }: DashboardSidebarProps) {
   return (
     <aside className="sidebar">
-      <a className="brand" href="/" aria-label="Contractors AI home">
+      <NavLink className="brand" to="/admin" aria-label="Contractors AI home">
         <img src="/favicon.svg" alt="" />
         <span>
           <strong>Contractors AI</strong>
           <small>Account control</small>
         </span>
-      </a>
+      </NavLink>
 
       <nav className="portal-tabs" aria-label="Portal selection">
-        <button
-          type="button"
-          className={activePortal === 'super-admin' ? 'active' : ''}
-          onClick={() => onPortalChange('super-admin')}
+        <NavLink
+          to="/super-admin"
+          className={({ isActive }) => (isActive ? 'active' : undefined)}
         >
           <span aria-hidden="true">SA</span>
           Super Admin
-        </button>
-        <button
-          type="button"
-          className={activePortal === 'admin' ? 'active' : ''}
-          onClick={() => onPortalChange('admin')}
+        </NavLink>
+        <NavLink
+          to="/admin"
+          className={({ isActive }) => (isActive ? 'active' : undefined)}
         >
           <span aria-hidden="true">A</span>
           Admin Portal
-        </button>
+        </NavLink>
       </nav>
 
       <div className="session-stack">
