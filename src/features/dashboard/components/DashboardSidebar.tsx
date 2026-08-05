@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 import type { AuthState } from '../../auth/types'
 
@@ -11,44 +11,30 @@ export function DashboardSidebar({
   superAdminAuth,
   adminAuth,
 }: DashboardSidebarProps) {
+  const { pathname } = useLocation()
+  const isSuperAdminPortal = pathname.startsWith('/super-admin')
+  const activeAuth = isSuperAdminPortal ? superAdminAuth : adminAuth
+  const portalLabel = isSuperAdminPortal ? 'Super Admin' : 'Admin Portal'
+
   return (
     <aside className="sidebar">
-      <NavLink className="brand" to="/admin" aria-label="Contractors AI home">
+      <Link
+        className="brand"
+        to={isSuperAdminPortal ? '/super-admin' : '/admin'}
+        aria-label={`${portalLabel} home`}
+      >
         <img src="/favicon.svg" alt="" />
         <span>
           <strong>Contractors AI</strong>
-          <small>Account control</small>
+          <small>{portalLabel}</small>
         </span>
-      </NavLink>
-
-      <nav className="portal-tabs" aria-label="Portal selection">
-        <NavLink
-          to="/super-admin"
-          className={({ isActive }) => (isActive ? 'active' : undefined)}
-        >
-          <span aria-hidden="true">SA</span>
-          Super Admin
-        </NavLink>
-        <NavLink
-          to="/admin"
-          className={({ isActive }) => (isActive ? 'active' : undefined)}
-        >
-          <span aria-hidden="true">A</span>
-          Admin Portal
-        </NavLink>
-      </nav>
+      </Link>
 
       <div className="session-stack">
-        <p>Super Admin</p>
+        <p>{portalLabel}</p>
         <strong>
-          {superAdminAuth.status === 'signed_in'
-            ? superAdminAuth.session.email
-            : 'Signed out'}
-        </strong>
-        <p>Admin</p>
-        <strong>
-          {adminAuth.status === 'signed_in'
-            ? adminAuth.session.email
+          {activeAuth.status === 'signed_in'
+            ? activeAuth.session.email
             : 'Signed out'}
         </strong>
       </div>

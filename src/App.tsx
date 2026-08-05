@@ -2,9 +2,9 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { useAdminAuth } from './features/auth/hooks/useAdminAuth'
 import { useSuperAdminAuth } from './features/auth/hooks/useSuperAdminAuth'
-import { AdminDashboard } from './features/dashboard/components/AdminDashboard'
+import { AdminPortalPage } from './features/dashboard/components/AdminPortalPage'
 import { DashboardSidebar } from './features/dashboard/components/DashboardSidebar'
-import { SuperAdminDashboard } from './features/dashboard/components/SuperAdminDashboard'
+import { SuperAdminPortalPage } from './features/dashboard/components/SuperAdminPortalPage'
 import { useAdminAccounts } from './features/users/hooks/useAdminAccounts'
 
 function App() {
@@ -28,13 +28,16 @@ function App() {
           <Route
             path="/super-admin"
             element={
-              <SuperAdminDashboard
+              <SuperAdminPortalPage
                 auth={superAdminAuth}
                 adminAccounts={adminAccounts}
               />
             }
           />
-          <Route path="/admin" element={<AdminDashboard auth={adminAuth} />} />
+          <Route
+            path="/admin"
+            element={<AdminPortalPage auth={adminAuth} />}
+          />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
       </section>
