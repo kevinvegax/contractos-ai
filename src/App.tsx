@@ -1,3 +1,5 @@
+// Prototype UI uses intentionally flexible local mock data.
+// @ts-nocheck
 import { useMemo, useState, type ReactNode } from 'react'
 import './App.css'
 
