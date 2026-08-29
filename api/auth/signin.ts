@@ -10,7 +10,8 @@ export default async function handler(request: IncomingMessage, response: Server
     const password = typeof body.password === 'string' ? body.password : ''
     const result = await getPool().query(`SELECT id, email, full_name, password_hash FROM users WHERE lower(email) = $1`, [email])
     const user = result.rows[0]
-    if (!user?.password_hash || !(await verifyPassword(password, user.password_hash))) {
+    const access = user ? await getPool().query(`SELECT 1 FROM company_memberships WHERE user_id = $1 AND status = 'active' LIMIT 1`, [user.id]) : { rows: [] }
+    if (!user?.password_hash || !(await verifyPassword(password, user.password_hash)) || !access.rows[0]) {
       sendJson(response, 401, { error: 'Email or password is incorrect.' }); return
     }
     const token = await createSession(user.id)

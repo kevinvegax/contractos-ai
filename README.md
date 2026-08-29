@@ -16,13 +16,14 @@ This repository contains the first vertical slice of the SaaS evidence-managemen
 
 1. Copy the database variables used by `docker-compose.yml` into `.env`.
 2. Start Postgres with `docker compose up -d postgres`.
-3. Apply `migrations/V1__create_company_workspace.sql` and `migrations/V2__create_secure_sessions.sql` to the database.
-4. Apply `migrations/V4__create_company_invitations.sql` and `migrations/V5__seed_local_company_workspace.sql`.
+3. Apply migrations V1 through V6 in filename order.
 5. Set `DATABASE_URL`, then run `npm run dev`. The Vite development server also mounts the local `/api/*` handlers, so the invitation flow works at `http://localhost:5173`.
 
 The local seeded account is `admin@northstar.build` with password `demo-password`. Change or remove it before production. Sessions expire after 8 hours, are invalidated on sign-out, and use an HTTP-only, same-site cookie. Passwords are scrypt hashes and are never returned by an API.
 
 Invitations expire after 7 days, store only a token hash, can be revoked by an administrator, and can be accepted once. The acceptance URL is sent by the configured transactional email provider.
+
+Company access is stored on `company_memberships.status`. Deactivating a member does not delete their user or project/task history. A user with no active company memberships cannot create a new session, and existing sessions are revoked when their last active membership is deactivated.
 
 ## Email delivery
 

@@ -19,7 +19,7 @@ export default async function handler(request: IncomingMessage, response: Server
     const membership = await withUserContext(userId, (client) => client.query(
       `SELECT c.id, c.name, c.slug, cm.role, c.created_at
        FROM companies c JOIN company_memberships cm ON cm.company_id = c.id
-       WHERE c.id = $1::uuid AND cm.user_id = $2::uuid`, [companyId, userId]))
+       WHERE c.id = $1::uuid AND cm.user_id = $2::uuid AND cm.status = 'active'`, [companyId, userId]))
     if (!membership.rows[0]) { sendJson(response, 403, { error: 'Workspace access denied' }); return }
     const data = await withCompanyContext(companyId, async (client) => {
       const [projects, activity] = await Promise.all([

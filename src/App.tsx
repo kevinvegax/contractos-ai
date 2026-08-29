@@ -8,6 +8,7 @@ type Activity = { action: string; entity_type: string; created_at: string }
 type WorkspacePayload = { workspace: Workspace; projects: Project[]; activity: Activity[] }
 type User = { id: string; email: string; full_name: string }
 type Invitation = { id: string; email: string; expires_at: string }
+type TeamMember = { id: string; email: string; full_name: string; role: string; status: 'active' | 'inactive' }
 
 const demoWorkspace: WorkspacePayload = {
   workspace: { id: 'demo', name: 'Northstar Construction', slug: 'northstar-construction', role: 'admin' },
@@ -53,6 +54,7 @@ function App() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [inviteMessage, setInviteMessage] = useState('')
+  const [team, setTeam] = useState<TeamMember[]>([])
   useEffect(() => {
     void getSession().catch(() => null).then((sessionUser) => {
       setUser(sessionUser)
@@ -66,6 +68,9 @@ function App() {
         if (response.ok) setInvitations((await response.json() as { invitations: Invitation[] }).invitations)
       })
     }
+  }, [data?.workspace.id])
+  useEffect(() => {
+    if (data?.workspace.id && data.workspace.id !== 'demo') void fetch(`/api/team?company_id=${data.workspace.id}`).then(async (response) => { if (response.ok) setTeam((await response.json() as { users: TeamMember[] }).users) })
   }, [data?.workspace.id])
   const workspace = data?.workspace ?? demoWorkspace.workspace
   const initials = useMemo(() => workspace.name.split(' ').map((word) => word[0]).slice(0, 2).join(''), [workspace.name])
@@ -85,6 +90,11 @@ function App() {
     const response = await fetch(`/api/invitations?company_id=${workspace.id}&id=${id}`, { method: 'DELETE' })
     if (response.ok) setInvitations((current) => current.filter((invite) => invite.id !== id))
   }
+  async function setMemberStatus(member: TeamMember) {
+    const status = member.status === 'active' ? 'inactive' : 'active'
+    const response = await fetch(`/api/team?company_id=${workspace.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ user_id: member.id, status }) })
+    if (response.ok) setTeam((current) => current.map((item) => item.id === member.id ? { ...item, status } : item))
+  }
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -98,6 +108,7 @@ function App() {
       <div className="page-wrap"><section className="welcome"><div><p className="kicker">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>Good morning, Maya<span className="wave">✦</span></h1><p className="subhead">Here’s what’s happening across your company workspace.</p></div><button className="primary-action"><Icon name="plus" /> New project</button></section>
         <section className="security-banner"><div className="security-icon"><Icon name="shield" /></div><div><strong>Company workspace secured</strong><p>Your organization has a private, isolated workspace. Projects, evidence, and team activity are only visible to members of <b>{workspace.name}</b>.</p></div><span className="verified">✓ Verified</span></section>
         {workspace.role === 'admin' && workspace.id !== 'demo' && <section className="invite-panel"><div><p className="kicker">Team access</p><h2>Invite people to your workspace</h2><p>Invite teammates by email. Each link is private, single-use, and expires in 7 days.</p></div><form onSubmit={(event) => void inviteUser(event)}><input type="email" placeholder="teammate@company.com" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required /><button className="primary-action" type="submit"><Icon name="plus" /> Send invite</button></form>{inviteMessage && <p className="invite-message" role="status">{inviteMessage}</p>}{invitations.length > 0 && <div className="pending-invites"><strong>Pending invitations</strong>{invitations.map((invite) => <div key={invite.id}><span>{invite.email}</span><small>Expires {new Date(invite.expires_at).toLocaleDateString()}</small><button type="button" onClick={() => void revokeInvite(invite.id)}>Revoke</button></div>)}</div>}</section>}
+        {workspace.role === 'admin' && workspace.id !== 'demo' && <section className="team-panel"><div className="team-heading"><div><p className="kicker">Workspace access</p><h2>Company users</h2><p>Deactivate access without deleting project or task history.</p></div><span>{team.length} members</span></div>{team.map((member) => <div className="team-member" key={member.id}><span className="user-avatar">{member.full_name.split(' ').map((word) => word[0]).slice(0, 2).join('')}</span><div><strong>{member.full_name}</strong><small>{member.email} · {member.role}</small></div><span className={`member-status ${member.status}`}>{member.status}</span><button type="button" onClick={() => void setMemberStatus(member)}>{member.status === 'active' ? 'Deactivate' : 'Reactivate'}</button></div>)}</section>}
         <div className="section-title"><div><p className="kicker">Your workspace</p><h2>At a glance</h2></div><button className="text-action">View activity <Icon name="arrow" /></button></div>
         <section className="stats-grid"><div className="stat-card"><span className="stat-icon blue"><Icon name="folder" /></span><div><span>Active projects</span><strong>{projects.length}</strong></div><small className="positive">+2 this month</small></div><div className="stat-card"><span className="stat-icon purple"><Icon name="file" /></span><div><span>Evidence files</span><strong>12</strong></div><small>Across all projects</small></div><div className="stat-card"><span className="stat-icon amber"><Icon name="users" /></span><div><span>Team members</span><strong>8</strong></div><small>2 pending invites</small></div></section>
         <div className="content-grid"><section className="card"><div className="card-heading"><div><h3>Recent projects</h3><p>Projects in your company workspace</p></div><button className="icon-button" aria-label="Add project"><Icon name="plus" /></button></div><div className="project-list">{projects.map((project) => <div className="project-row" key={project.id}><span className="project-mark">{project.name.slice(0, 1)}</span><div><strong>{project.name}</strong><span>Updated today</span></div><span className="pill"><i /> Active</span><Icon name="arrow" /></div>)}</div><button className="card-footer">View all projects <Icon name="arrow" /></button></section><section className="card"><div className="card-heading"><div><h3>Recent activity</h3><p>Latest changes in your workspace</p></div></div><div className="activity-list">{activity.map((item, index) => <div className="activity-row" key={`${item.action}-${index}`}><span className={`activity-dot dot-${index}`} /><div><strong>{item.action}</strong><span>{item.entity_type === 'workspace' ? workspace.name : 'Workspace security'} <b>·</b> {item.created_at}</span></div></div>)}</div><button className="card-footer">View full activity <Icon name="arrow" /></button></section></div>

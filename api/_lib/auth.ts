@@ -52,7 +52,8 @@ export async function getSessionUser(request: IncomingMessage) {
   if (!token) return null
   const result = await getPool().query(
     `SELECT u.id, u.email, u.full_name FROM user_sessions s JOIN users u ON u.id = s.user_id
-     WHERE s.token_hash = $1 AND s.expires_at > now()`, [tokenHash(token)])
+     WHERE s.token_hash = $1 AND s.expires_at > now()
+       AND EXISTS (SELECT 1 FROM company_memberships cm WHERE cm.user_id = u.id AND cm.status = 'active')`, [tokenHash(token)])
   return result.rows[0] ?? null
 }
 
