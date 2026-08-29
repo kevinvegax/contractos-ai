@@ -1,179 +1,112 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import './App.css'
 
-type PostgresInfo = {
-  current_time: string
-  current_date: string
-  database_name: string
-}
+type Role = 'admin' | 'user'
+type Page = 'Overview' | 'Projects' | 'Project detail' | 'Tasks' | 'Evidence review' | 'Team' | 'Settings' | 'My dashboard' | 'My tasks' | 'My evidence'
+type IconName = 'grid' | 'folder' | 'check' | 'users' | 'settings' | 'search' | 'bell' | 'plus' | 'arrow' | 'dots' | 'clock' | 'file' | 'upload' | 'comment' | 'back' | 'chevron'
 
-type MigrationDemoItem = {
-  id: number
-  label: string
-  created_at: string
-}
-
-type PostgresPayload = {
-  postgres: PostgresInfo
-  migrationDemoItems: MigrationDemoItem[]
-}
-
-type ApiState =
-  | { status: 'loading'; payload: PostgresPayload | null; error: null }
-  | { status: 'ready'; payload: PostgresPayload; error: null }
-  | { status: 'error'; payload: PostgresPayload | null; error: string }
-
-async function fetchPostgresInfo() {
-  const response = await fetch('/api/postgres')
-  const payload = (await response.json()) as Partial<PostgresPayload> & {
-    error?: string
-    detail?: string
+function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
+  const p = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' }
+  const paths: Record<IconName, ReactNode> = {
+    grid: <><rect {...p} x="3" y="3" width="7" height="7" rx="1"/><rect {...p} x="14" y="3" width="7" height="7" rx="1"/><rect {...p} x="3" y="14" width="7" height="7" rx="1"/><rect {...p} x="14" y="14" width="7" height="7" rx="1"/></>,
+    folder: <><path {...p} d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-9Z"/><path {...p} d="M3 10h18"/></>,
+    check: <><path {...p} d="m5 12 4 4L19 6"/><circle {...p} cx="12" cy="12" r="9"/></>,
+    users: <><path {...p} d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/><circle {...p} cx="10" cy="7.5" r="3.5"/><path {...p} d="M16 4.2a3.5 3.5 0 0 1 0 6.6M19.5 20v-1.5a3.5 3.5 0 0 0-2.5-3.35"/></>,
+    settings: <><circle {...p} cx="12" cy="12" r="3"/><path {...p} d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.4 15a1.7 1.7 0 0 0-1.56-1.03H6v-2.4h.84A1.7 1.7 0 0 0 8.4 10a1.7 1.7 0 0 0-.34-1.88L8 8.06l1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 12.67 5.2V5h2.4v.2a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06a1.7 1.7 0 0 0-.34 1.88c.26.63.87 1.03 1.56 1.03h.1v2.4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></>,
+    search: <><circle {...p} cx="10.8" cy="10.8" r="6.8"/><path {...p} d="m16 16 4.5 4.5"/></>,
+    bell: <><path {...p} d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>,
+    plus: <><path {...p} d="M12 5v14M5 12h14"/></>,
+    arrow: <><path {...p} d="M5 12h14M13 6l6 6-6 6"/></>,
+    dots: <><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></>,
+    clock: <><circle {...p} cx="12" cy="12" r="9"/><path {...p} d="M12 7v5l3 2"/></>,
+    file: <><path {...p} d="M6 3h8l4 4v14H6z"/><path {...p} d="M14 3v5h5M9 13h6M9 17h6"/></>,
+    upload: <><path {...p} d="M12 16V4M8 8l4-4 4 4M5 14v5h14v-5"/></>,
+    comment: <><path {...p} d="M20 11.5a7 7 0 0 1-7 7H7l-4 3v-10a7 7 0 0 1 7-7h3a7 7 0 0 1 7 7Z"/></>,
+    back: <><path {...p} d="M19 12H5M11 18l-6-6 6-6"/></>,
   }
-
-  if (!response.ok) {
-    const message = [payload.error, payload.detail].filter(Boolean).join(': ')
-
-    throw new Error(message || 'No se pudo cargar la API')
-  }
-
-  return payload as PostgresPayload
+  return <svg width={size} height={size} viewBox="0 0 24 24">{paths[name]}</svg>
 }
+
+const projects = [
+  { id: 'riverside', name: 'Riverside Office Renovation', client: 'Turner & Co. / Commercial', status: 'In progress', progress: 68, tasks: '17 / 25', due: 'Oct 24, 2024', color: 'violet', description: 'Full interior renovation and compliance documentation for a 12,000 sq ft commercial office.' },
+  { id: 'maple', name: 'Maple Street Residence', client: 'Private client / Residential', status: 'At risk', progress: 42, tasks: '8 / 19', due: 'Oct 18, 2024', color: 'orange', description: 'Kitchen, living area, and exterior improvements for a private residence.' },
+  { id: 'oakridge', name: 'Oakridge Retail Fit-out', client: 'Grove Retail Group', status: 'In progress', progress: 81, tasks: '21 / 26', due: 'Nov 02, 2024', color: 'teal', description: 'Retail fit-out, handover documentation, and warranty collection.' },
+]
+type Project = (typeof projects)[number]
+const tasks = [
+  { id: 1, title: 'Submit electrical inspection certificate', project: 'Riverside Office Renovation', assignee: 'JD', name: 'James Diaz', status: 'Needs review', due: 'Today', tone: 'purple', evidence: 2, description: 'Upload the signed electrical inspection certificate issued after the final inspection.' },
+  { id: 2, title: 'Upload final kitchen installation photos', project: 'Maple Street Residence', assignee: 'SM', name: 'Sofia Martinez', status: 'Overdue', due: '2 days ago', tone: 'orange', evidence: 4, description: 'Provide clear photos of the completed kitchen installation from all required angles.' },
+  { id: 3, title: 'Confirm HVAC commissioning report', project: 'Riverside Office Renovation', assignee: 'MC', name: 'Marcus Chen', status: 'Submitted', due: 'Oct 16', tone: 'blue', evidence: 1, description: 'Confirm the commissioning report and include the final system readings.' },
+  { id: 4, title: 'Add manufacturer warranty documents', project: 'Oakridge Retail Fit-out', assignee: 'AW', name: 'Alex Wong', status: 'In progress', due: 'Oct 20', tone: 'green', evidence: 0, description: 'Collect warranty documentation for installed fixtures and equipment.' },
+]
+type Task = (typeof tasks)[number]
 
 function App() {
-  const [apiState, setApiState] = useState<ApiState>({
-    status: 'loading',
-    payload: null,
-    error: null,
-  })
+  const [role, setRole] = useState<Role>('admin')
+  const [page, setPage] = useState<Page>('Overview')
+  const [selectedProject, setSelectedProject] = useState(projects[0])
+  const [selectedTask, setSelectedTask] = useState(tasks[0])
+  const [filter, setFilter] = useState('All tasks')
+  const [modal, setModal] = useState<'project' | 'task' | 'invite' | 'evidence' | null>(null)
+  const [notice, setNotice] = useState('')
+  const [comment, setComment] = useState('')
+  const [uploaded, setUploaded] = useState(false)
+  const action = (message: string) => { setNotice(message); window.setTimeout(() => setNotice(''), 2500) }
+  const go = (next: Page) => setPage(next)
+  const visibleTasks = useMemo(() => filter === 'All tasks' ? tasks : tasks.filter((task) => task.status === filter), [filter])
+  const openTask = (task: typeof tasks[number]) => { setSelectedTask(task); setPage(role === 'user' ? 'My evidence' : 'Evidence review') }
 
-  async function reloadPostgresInfo() {
-    setApiState((current) => ({
-      status: 'loading',
-      payload: current.payload,
-      error: null,
-    }))
+  const adminNav: [Page, IconName][] = [['Overview', 'grid'], ['Projects', 'folder'], ['Tasks', 'check'], ['Evidence review', 'file'], ['Team', 'users']]
+  const userNav: [Page, IconName][] = [['My dashboard', 'grid'], ['My tasks', 'check'], ['My evidence', 'file']]
+  const nav = role === 'admin' ? adminNav : userNav
+  const pageTitle = role === 'admin' ? page : page
 
-    try {
-      const payload = await fetchPostgresInfo()
-
-      setApiState({
-        status: 'ready',
-        payload,
-        error: null,
-      })
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'No se pudo cargar la API'
-
-      setApiState((current) => ({
-        status: 'error',
-        payload: current.payload,
-        error: message,
-      }))
-    }
-  }
-
-  useEffect(() => {
-    let ignore = false
-
-    async function loadInitialPostgresInfo() {
-      try {
-        const payload = await fetchPostgresInfo()
-
-        if (!ignore) {
-          setApiState({
-            status: 'ready',
-            payload,
-            error: null,
-          })
-        }
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'No se pudo cargar la API'
-
-        if (!ignore) {
-          setApiState({
-            status: 'error',
-            payload: null,
-            error: message,
-          })
-        }
-      }
-    }
-
-    void loadInitialPostgresInfo()
-
-    return () => {
-      ignore = true
-    }
-  }, [])
-
-  return (
-    <main className="app-shell">
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Vercel API + Postgres local</p>
-            <h1>Postgres</h1>
-          </div>
-          <button
-            type="button"
-            onClick={() => void reloadPostgresInfo()}
-            disabled={apiState.status === 'loading'}
-          >
-            {apiState.status === 'loading' ? 'Cargando' : 'Recargar'}
-          </button>
-        </div>
-
-        {apiState.status === 'error' && (
-          <p className="status error">{apiState.error}</p>
-        )}
-
-        {apiState.status === 'loading' && !apiState.payload && (
-          <p className="status">Consultando /api/postgres...</p>
-        )}
-
-        {apiState.payload && (
-          <div className="panel-body">
-            <dl className="postgres-info">
-              <div>
-                <dt>Base de datos</dt>
-                <dd>{apiState.payload.postgres.database_name}</dd>
-              </div>
-              <div>
-                <dt>Fecha</dt>
-                <dd>{apiState.payload.postgres.current_date}</dd>
-              </div>
-              <div>
-                <dt>Hora</dt>
-                <dd>{apiState.payload.postgres.current_time}</dd>
-              </div>
-            </dl>
-
-            <section className="migration-demo" aria-labelledby="migration-title">
-              <div className="section-header">
-                <p className="eyebrow">Tabla creada por migracion</p>
-                <h2 id="migration-title">migration_demo_items</h2>
-              </div>
-
-              {apiState.payload.migrationDemoItems.length > 0 ? (
-                <ul className="demo-list">
-                  {apiState.payload.migrationDemoItems.map((item) => (
-                    <li key={item.id}>
-                      <span>{item.label}</span>
-                      <time dateTime={item.created_at}>{item.created_at}</time>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="empty-state">No hay registros en la tabla.</p>
-              )}
-            </section>
-          </div>
-        )}
-      </section>
+  return <div className="app-layout">
+    <aside className="sidebar">
+      <div className="brand"><div className="brand-mark">◈</div><span>Fieldnote</span></div>
+      <button className="role-switcher" onClick={() => { const next = role === 'admin' ? 'user' : 'admin'; setRole(next); setPage(next === 'admin' ? 'Overview' : 'My dashboard'); action(`Switched to ${next === 'admin' ? 'Administrator' : 'Task User'} view`) }}><div className={`role-avatar ${role}`}>{role === 'admin' ? 'TC' : 'SM'}</div><div><strong>{role === 'admin' ? 'Turner & Co.' : 'Sofia Martinez'}</strong><span>{role === 'admin' ? 'Administrator view' : 'Task user view'}</span></div><span className="switcher-chevron">⌄</span></button>
+      <nav><p className="nav-label">{role === 'admin' ? 'Workspace' : 'My workspace'}</p>{nav.map(([label, icon]) => <button key={label} className={`nav-item ${page === label ? 'active' : ''}`} onClick={() => go(label)}><Icon name={icon}/><span>{label}</span>{label === 'Evidence review' && <em>3</em>}{label === 'My evidence' && <em>2</em>}</button>)}{role === 'admin' && <><p className="nav-label settings-label">Manage</p><button className={`nav-item ${page === 'Settings' ? 'active' : ''}`} onClick={() => go('Settings')}><Icon name="settings"/><span>Settings</span></button></>}</nav>
+      <div className="sidebar-bottom"><div className="help-card"><span className="help-icon">?</span><div><strong>Need a hand?</strong><span>Visit our help center</span></div><Icon name="arrow" size={15}/></div><div className="user-profile"><div className="profile-avatar">{role === 'admin' ? 'KV' : 'SM'}</div><div><strong>{role === 'admin' ? 'Kevin Vega' : 'Sofia Martinez'}</strong><span>{role === 'admin' ? 'Company Administrator' : 'Task User'}</span></div><Icon name="dots" size={17}/></div></div>
+    </aside>
+    <main className="main-content">
+      <header className="topbar"><div className="breadcrumb"><span>Turner & Co.</span><span>/</span><strong>{pageTitle}</strong></div><div className="top-actions"><button className="icon-button" onClick={() => action('Search is coming soon')}><Icon name="search"/></button><button className="icon-button notification" onClick={() => action('You’re all caught up')}><Icon name="bell"/><i/></button><div className="top-avatar">{role === 'admin' ? 'KV' : 'SM'}</div></div></header>
+      <div className="content-wrap">
+        {page === 'Overview' && role === 'admin' && <AdminOverview go={go} action={action} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} setModal={setModal} />}
+        {page === 'Projects' && role === 'admin' && <ProjectsPage projects={projects} go={go} setSelectedProject={setSelectedProject} setModal={setModal} />}
+        {page === 'Project detail' && role === 'admin' && <ProjectDetail project={selectedProject} go={go} tasks={tasks.filter((task) => task.project === selectedProject.name)} openTask={openTask} setModal={setModal} />}
+        {page === 'Tasks' && role === 'admin' && <TasksPage filter={filter} setFilter={setFilter} visibleTasks={visibleTasks} openTask={openTask} setModal={setModal} />}
+        {page === 'Evidence review' && role === 'admin' && <EvidenceReview task={selectedTask} go={go} action={action} setModal={setModal} />}
+        {page === 'Team' && role === 'admin' && <TeamPage setModal={setModal} action={action} />}
+        {page === 'Settings' && role === 'admin' && <SettingsPage action={action} />}
+        {page === 'My dashboard' && role === 'user' && <UserDashboard go={go} tasks={tasks} openTask={openTask} action={action} />}
+        {page === 'My tasks' && role === 'user' && <MyTasks tasks={tasks} openTask={openTask} />}
+        {page === 'My evidence' && role === 'user' && <UserTaskDetail task={selectedTask} uploaded={uploaded} setUploaded={setUploaded} comment={comment} setComment={setComment} action={action} setModal={setModal} />}
+      </div>
     </main>
-  )
+    {notice && <div className="toast">{notice}</div>}
+    {modal && <Modal kind={modal} close={() => setModal(null)} action={action} task={selectedTask} setUploaded={setUploaded} />}
+  </div>
 }
+
+function Header({ eyebrow, title, sub, children }: { eyebrow?: string; title: ReactNode; sub?: string; children?: ReactNode }) { return <section className="page-intro"><div>{eyebrow && <p className="kicker">{eyebrow}</p>}<h1>{title}</h1>{sub && <p className="intro-copy">{sub}</p>}</div>{children}</section> }
+function Stat({ label, value, detail, icon, tone }: { label: string; value: string; detail: string; icon: IconName; tone: string }) { return <div className="stat-card"><div className={`stat-icon ${tone}`}><Icon name={icon}/></div><div className="stat-copy"><span>{label}</span><strong>{value}</strong><small>{detail}</small></div><span className="stat-arrow">↗</span></div> }
+function AdminOverview({ go, action, projects, selectedProject, setSelectedProject, setModal }: { go: (p: Page) => void; action: (s: string) => void; projects: typeof projects; selectedProject: typeof projects[number]; setSelectedProject: (p: typeof projects[number]) => void; setModal: (m: 'project') => void }) { return <><Header eyebrow="Tuesday, October 15, 2024" title={<>Good morning, Kevin <span className="sun">✦</span></>} sub="Here’s what’s happening across your projects."><button className="primary-button" onClick={() => setModal('project')}><Icon name="plus" size={17}/> New project</button></Header><section className="stats-grid"><Stat label="Active projects" value="3" detail="+1 this month" icon="folder" tone="lavender"/><Stat label="Open tasks" value="12" detail="4 need your review" icon="check" tone="peach"/><Stat label="Evidence submitted" value="84" detail="+18 this week" icon="file" tone="mint"/><Stat label="Team members" value="8" detail="2 pending invites" icon="users" tone="sky"/></section><div className="dashboard-grid"><section className="card"><CardHeading title="Project overview" sub="Track progress across your active work."><button className="text-button" onClick={() => go('Projects')}>View all <Icon name="arrow" size={15}/></button></CardHeading><div className="project-list">{projects.map((project) => <button className={`project-row ${selectedProject.name === project.name ? 'selected' : ''}`} onClick={() => setSelectedProject(project)} key={project.id}><ProjectRow project={project}/></button>)}</div></section><ActivityCard action={action}/></div><TaskAttention go={go} openTask={() => go('Evidence review')} /></> }
+function CardHeading({ title, sub, children }: { title: string; sub?: string; children?: ReactNode }) { return <div className="card-heading"><div><h2>{title}</h2>{sub && <p>{sub}</p>}</div>{children}</div> }
+function ProjectRow({ project }: { project: typeof projects[number] }) { return <><div className={`project-icon ${project.color}`}><Icon name="folder" size={19}/></div><div className="project-main"><div className="project-title"><strong>{project.name}</strong><span className={`status-pill ${project.status === 'At risk' ? 'risk' : 'progress'}`}>{project.status}</span></div><span className="project-client">{project.client}</span><div className="progress-line"><span style={{ width: `${project.progress}%` }} className={project.color}/></div></div><div className="project-meta"><strong>{project.progress}%</strong><span>{project.tasks} tasks</span></div><div className="project-due"><span>Due</span><strong>{project.due}</strong></div><Icon name="dots" size={17}/></> }
+function ActivityCard({ action }: { action: (s: string) => void }) { return <section className="card activity-card"><CardHeading title="Recent activity" sub="Latest updates from your team."><button className="icon-button" onClick={() => action('Activity feed refreshed')}><Icon name="dots"/></button></CardHeading><div className="activity-list"><Activity initials="SM" color="orange" text={<><b>Sofia Martinez</b> submitted evidence</>} sub="Final kitchen installation photos · 12 min ago"/><Activity initials="JD" color="purple" text={<><b>James Diaz</b> completed a task</>} sub="Install emergency lighting · 1 hr ago"/><Activity initials="KV" color="blue" text={<><b>You</b> approved evidence</>} sub="Site safety plan v2 · 3 hrs ago"/><Activity initials="MC" color="green" text={<><b>Marcus Chen</b> left a comment</>} sub="HVAC commissioning report · 5 hrs ago"/></div><button className="activity-footer" onClick={() => action('Full activity history is coming soon')}>View full activity <Icon name="arrow" size={15}/></button></section> }
+function Activity({ initials, color, text, sub }: { initials: string; color: string; text: ReactNode; sub: string }) { return <div className="activity-row"><span className={`activity-avatar ${color}`}>{initials}</span><div><p>{text}</p><span>{sub}</span></div></div> }
+function TaskAttention({ go, openTask }: { go: (p: Page) => void; openTask: () => void }) { return <section className="card tasks-card"><CardHeading title="Tasks needing attention" sub="Stay on top of submissions and deadlines."><button className="text-button" onClick={() => go('Tasks')}>View all tasks <Icon name="arrow" size={15}/></button></CardHeading><div className="task-list">{tasks.slice(0, 3).map((task) => <button className="task-list-row" key={task.id} onClick={openTask}><TaskCell task={task}/><span className={`task-status ${task.status.toLowerCase().replace(' ', '-')}`}><i/> {task.status}</span><span>{task.due}</span><Icon name="arrow" size={14}/></button>)}</div></section> }
+function TaskCell({ task }: { task: typeof tasks[number] }) { return <div className="task-name"><div className={`file-icon ${task.tone}`}><Icon name="file" size={17}/></div><div><strong>{task.title}</strong><span>{task.project}</span></div></div> }
+function ProjectsPage({ projects, go, setSelectedProject, setModal }: { projects: typeof projects; go: (p: Page) => void; setSelectedProject: (p: typeof projects[number]) => void; setModal: (m: 'project') => void }) { return <><Header title="Projects" sub="Manage active workspaces, deadlines, and project evidence."><button className="primary-button" onClick={() => setModal('project')}><Icon name="plus"/> New project</button></Header><div className="filter-bar"><div className="search-field"><Icon name="search" size={15}/><input placeholder="Search projects"/></div><button className="filter-button">All statuses ⌄</button></div><div className="project-cards-grid">{projects.map((project) => <button className="project-card-large" key={project.id} onClick={() => { setSelectedProject(project); go('Project detail') }}><div className={`large-project-icon ${project.color}`}><Icon name="folder" size={22}/></div><div className="project-card-title"><h2>{project.name}</h2><span className={`status-pill ${project.status === 'At risk' ? 'risk' : 'progress'}`}>{project.status}</span></div><p>{project.description}</p><div className="large-progress"><div><span>Overall progress</span><strong>{project.progress}%</strong></div><div className="progress-line"><span style={{ width: `${project.progress}%` }} className={project.color}/></div></div><div className="project-card-footer"><span>{project.tasks} tasks</span><span>Due {project.due}</span><Icon name="arrow" size={15}/></div></button>)}</div></> }
+function ProjectDetail({ project, go, tasks: projectTasks, openTask, setModal }: { project: typeof projects[number]; go: (p: Page) => void; tasks: typeof tasks; openTask: (t: typeof tasks[number]) => void; setModal: (m: 'task') => void }) { return <><button className="back-button" onClick={() => go('Projects')}><Icon name="back" size={16}/> All projects</button><Header title={project.name} sub={project.description}><button className="primary-button" onClick={() => setModal('task')}><Icon name="plus"/> Add task</button></Header><div className="detail-summary"><div><span>Progress</span><strong>{project.progress}%</strong></div><div><span>Tasks complete</span><strong>{project.tasks}</strong></div><div><span>Deadline</span><strong>{project.due}</strong></div><div><span>Evidence files</span><strong>28</strong></div></div><section className="card detail-tasks"><CardHeading title="Project tasks" sub="Tasks and evidence requirements for this project."/><div className="detail-table">{projectTasks.length ? projectTasks.map((task) => <button className="detail-task-row" key={task.id} onClick={() => openTask(task)}><TaskCell task={task}/><span className={`task-status ${task.status.toLowerCase().replace(' ', '-')}`}><i/> {task.status}</span><span>{task.name}</span><span>{task.due}</span><Icon name="chevron" size={15}/></button>) : <p className="empty-table">No tasks yet. Add the first task to this project.</p>}</div></section></> }
+function TasksPage({ filter, setFilter, visibleTasks, openTask, setModal }: { filter: string; setFilter: (f: string) => void; visibleTasks: typeof tasks; openTask: (t: typeof tasks[number]) => void; setModal: (m: 'task') => void }) { return <><Header title="Tasks" sub="Assign work, monitor deadlines, and follow up on evidence."><button className="primary-button" onClick={() => setModal('task')}><Icon name="plus"/> New task</button></Header><section className="card tasks-card full"><div className="task-toolbar"><div className="tabs">{['All tasks', 'Needs review', 'Overdue', 'In progress'].map((tab) => <button key={tab} className={filter === tab ? 'active' : ''} onClick={() => setFilter(tab)}>{tab}</button>)}</div><button className="filter-button">This week ⌄</button></div><div className="table-wrap"><table><thead><tr><th>Task</th><th>Assignee</th><th>Status</th><th>Due date</th><th>Evidence</th></tr></thead><tbody>{visibleTasks.map((task) => <tr key={task.id} onClick={() => openTask(task)}><td><TaskCell task={task}/></td><td><div className="assignee"><span className={`mini-avatar ${task.tone}`}>{task.assignee}</span>{task.name}</div></td><td><span className={`task-status ${task.status.toLowerCase().replace(' ', '-')}`}><i/> {task.status}</span></td><td>{task.due}</td><td>{task.evidence} files <Icon name="chevron" size={13}/></td></tr>)}</tbody></table>{!visibleTasks.length && <div className="empty-table">No tasks in this view.</div>}</div></section></> }
+function EvidenceReview({ task, go, action, setModal }: { task: typeof tasks[number]; go: (p: Page) => void; action: (s: string) => void; setModal: (m: 'evidence') => void }) { return <><button className="back-button" onClick={() => go('Tasks')}><Icon name="back" size={16}/> All tasks</button><Header title="Evidence review" sub="Review submitted files, request corrections, or approve the submission."/><div className="review-layout"><section className="card review-main"><div className="review-task-head"><div className={`large-project-icon ${task.tone}`}><Icon name="file" size={22}/></div><div><h2>{task.title}</h2><p>{task.project}</p></div><span className={`task-status ${task.status.toLowerCase().replace(' ', '-')}`}><i/> {task.status}</span></div><div className="review-section"><h3>Submitted evidence <span>2 files</span></h3><div className="evidence-file"><div className="file-thumb purple"><Icon name="file"/></div><div><strong>Electrical_certificate_signed.pdf</strong><span>PDF · 2.4 MB · Submitted by James Diaz</span></div><button className="icon-button" onClick={() => action('Preview opened')}><Icon name="arrow" size={15}/></button></div><div className="evidence-file"><div className="file-thumb blue"><Icon name="file"/></div><div><strong>Inspection_notes.pdf</strong><span>PDF · 840 KB · Submitted by James Diaz</span></div><button className="icon-button" onClick={() => action('Preview opened')}><Icon name="arrow" size={15}/></button></div></div><div className="review-section"><h3>Review decision</h3><p className="muted">Check the files above before approving the task. Request changes if anything is missing.</p><div className="review-actions"><button className="secondary-button" onClick={() => setModal('evidence')}>Request changes</button><button className="approve-button" onClick={() => action('Evidence approved successfully')}><Icon name="check" size={15}/> Approve evidence</button></div></div></section><aside className="card side-detail"><h3>Task details</h3><DetailLine label="Assigned to" value={task.name}/><DetailLine label="Due date" value={task.due}/><DetailLine label="Required files" value="2 documents"/><DetailLine label="Last updated" value="12 minutes ago"/><div className="side-divider"/><h3>Activity history</h3><Activity initials="SM" color="orange" text={<><b>James Diaz</b> submitted 2 files</>} sub="Today at 9:42 AM"/><Activity initials="KV" color="blue" text={<><b>You</b> requested evidence</>} sub="Yesterday at 4:18 PM"/></aside></div></> }
+function DetailLine({ label, value }: { label: string; value: string }) { return <div className="detail-line"><span>{label}</span><strong>{value}</strong></div> }
+function TeamPage({ setModal, action }: { setModal: (m: 'invite') => void; action: (s: string) => void }) { const members = [['KV','Kevin Vega','Administrator','Owner','blue'],['SM','Sofia Martinez','Task User','3 tasks','orange'],['JD','James Diaz','Task User','4 tasks','purple'],['MC','Marcus Chen','Task User','2 tasks','green'],['AW','Alex Wong','Task User','3 tasks','blue']]; return <><Header title="Team" sub="Manage workspace members, roles, and assignments."><button className="primary-button" onClick={() => setModal('invite')}><Icon name="plus"/> Invite member</button></Header><section className="card team-card"><div className="team-header"><div><h2>Workspace members</h2><p>8 seats · 2 pending invitations</p></div><div className="search-field compact"><Icon name="search" size={15}/><input placeholder="Search members"/></div></div>{members.map(([initials,name,role,work,color]) => <div className="member-row" key={name}><span className={`member-avatar ${color}`}>{initials}</span><div className="member-name"><strong>{name}</strong><span>{role}</span></div><span className="member-work">{work}</span><span className="member-active">Active</span><button className="row-dots" onClick={() => action(`Opened options for ${name}`)}><Icon name="dots"/></button></div>)}</section></> }
+function SettingsPage({ action }: { action: (s: string) => void }) { return <><Header title="Settings" sub="Configure your company workspace and notification preferences."/><div className="settings-grid"><section className="card settings-card"><h2>Company profile</h2><p>Workspace details shown to your team.</p><label>Company name<input defaultValue="Turner & Co."/></label><label>Industry<select defaultValue="Construction"><option>Construction</option><option>Architecture</option><option>Facilities management</option></select></label><label>Timezone<select defaultValue="America / Monterrey"><option>America / Monterrey</option><option>America / Chicago</option></select></label><button className="primary-button save-button" onClick={() => action('Settings saved locally')}>Save changes</button></section><section className="card settings-card"><h2>Notifications</h2><p>Choose what you and your team receive.</p>{['Task assignments','Evidence submissions','Due date reminders','Comments and mentions'].map((item, i) => <label className="toggle-row" key={item}><span><strong>{item}</strong><small>Send email notifications</small></span><input type="checkbox" defaultChecked={i !== 3}/></label>)}</section></div></> }
+function UserDashboard({ go, tasks, openTask, action }: { go: (p: Page) => void; tasks: typeof tasks; openTask: (t: typeof tasks[number]) => void; action: (s: string) => void }) { const mine = tasks.filter((task) => task.name === 'Sofia Martinez' || task.id === 4); return <><Header eyebrow="Tuesday, October 15, 2024" title={<>Hi Sofia <span className="sun">✦</span></>} sub="Here are the tasks and evidence updates assigned to you."/><section className="stats-grid"><Stat label="Assigned to me" value="4" detail="2 due this week" icon="check" tone="lavender"/><Stat label="Awaiting review" value="2" detail="Submitted evidence" icon="clock" tone="peach"/><Stat label="Approved evidence" value="9" detail="Across 3 projects" icon="file" tone="mint"/><Stat label="Open comments" value="3" detail="Needs your reply" icon="comment" tone="sky"/></section><div className="user-dashboard-grid"><section className="card user-tasks"><CardHeading title="My tasks" sub="Your next actions across all projects."><button className="text-button" onClick={() => go('My tasks')}>View all <Icon name="arrow" size={15}/></button></CardHeading>{mine.map((task) => <button className="user-task-row" key={task.id} onClick={() => openTask(task)}><TaskCell task={task}/><span className={`task-status ${task.status.toLowerCase().replace(' ', '-')}`}><i/> {task.status}</span><span>{task.due}</span><Icon name="chevron" size={15}/></button>)}</section><section className="card checklist-card"><CardHeading title="Your checklist" sub="Keep your projects moving."/><div className="checklist"><div className="checklist-done"><span>✓</span><div><strong>Complete profile</strong><small>Done</small></div></div><div><span className="empty-check"/><div><strong>Upload Maple Street photos</strong><small>Due today</small></div></div><div><span className="empty-check"/><div><strong>Reply to project comment</strong><small>Due tomorrow</small></div></div></div><button className="activity-footer" onClick={() => action('Checklist refreshed')}>View activity <Icon name="arrow" size={15}/></button></section></div></> }
+function MyTasks({ tasks, openTask }: { tasks: typeof tasks; openTask: (t: typeof tasks[number]) => void }) { return <><Header title="My tasks" sub="Everything assigned to you, organized by deadline."/><section className="card tasks-card full"><div className="task-toolbar"><div className="tabs"><button className="active">All tasks</button><button>Due soon</button><button>Completed</button></div><button className="filter-button">All projects ⌄</button></div><div className="detail-table">{tasks.filter((task) => task.name === 'Sofia Martinez' || task.id === 4).map((task) => <button className="detail-task-row" key={task.id} onClick={() => openTask(task)}><TaskCell task={task}/><span className={`task-status ${task.status.toLowerCase().replace(' ', '-')}`}><i/> {task.status}</span><span>{task.evidence} evidence files</span><span>{task.due}</span><Icon name="chevron" size={15}/></button>)}</div></section></> }
+function UserTaskDetail({ task, uploaded, setUploaded, comment, setComment, action, setModal }: { task: typeof tasks[number]; uploaded: boolean; setUploaded: (v: boolean) => void; comment: string; setComment: (v: string) => void; action: (s: string) => void; setModal: (m: 'evidence') => void }) { return <><button className="back-button" onClick={() => action('Back to my tasks')}><Icon name="back" size={16}/> My tasks</button><Header title={task.title} sub={task.project}><span className={`task-status ${task.status.toLowerCase().replace(' ', '-')}`}><i/> {uploaded ? 'Submitted' : task.status}</span></Header><div className="user-detail-grid"><section className="card task-detail-main"><div className="instruction-box"><h3>Task instructions</h3><p>{task.description}</p><DetailLine label="Due date" value={task.due}/><DetailLine label="Assigned by" value="Kevin Vega"/></div><div className="upload-zone" onClick={() => setModal('evidence')}><div className="upload-circle"><Icon name="upload"/></div><h3>{uploaded ? 'Evidence ready for review' : 'Upload your evidence'}</h3><p>{uploaded ? 'You uploaded 1 file. Click to add another.' : 'Drag files here or click to browse from your computer.'}</p><small>PDF, JPG, PNG, DOCX · Max 25 MB</small></div>{uploaded && <div className="evidence-file uploaded-file"><div className="file-thumb green"><Icon name="file"/></div><div><strong>kitchen_installation_photos.zip</strong><span>ZIP · 8.2 MB · Uploaded just now</span></div><span className="approved-label">Ready for review</span></div>}<div className="comment-box"><h3><Icon name="comment" size={16}/> Comments</h3><div className="comment-item"><span className="activity-avatar blue">KV</span><div><p><b>Kevin Vega</b> Please include a wide shot of the completed backsplash.</p><small>Yesterday at 4:18 PM</small></div></div><div className="comment-compose"><input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Write a comment..."/><button className="primary-button" disabled={!comment} onClick={() => { action('Comment added'); setComment('') }}>Send</button></div></div></section><aside className="card side-detail"><h3>Task activity</h3><Activity initials="KV" color="blue" text={<><b>Kevin Vega</b> left a comment</>} sub="Yesterday at 4:18 PM"/><Activity initials="SM" color="orange" text={<><b>You</b> changed status to In progress</>} sub="Yesterday at 3:50 PM"/><Activity initials="KV" color="blue" text={<><b>Kevin Vega</b> created this task</>} sub="Oct 10 at 9:14 AM"/><div className="side-divider"/><h3>Required evidence</h3><p className="muted">Kitchen installation photos</p><p className="muted">Warranty documentation</p></aside></div></> }
+function Modal({ kind, close, action, task, setUploaded }: { kind: 'project' | 'task' | 'invite' | 'evidence'; close: () => void; action: (s: string) => void; task: typeof tasks[number]; setUploaded: (v: boolean) => void }) { const isEvidence = kind === 'evidence'; const title = kind === 'project' ? 'Create a new project' : kind === 'task' ? 'Create a new task' : kind === 'invite' ? 'Invite a team member' : 'Upload evidence'; return <div className="modal-backdrop" onClick={close}><div className="modal" onClick={(e) => e.stopPropagation()}><button className="modal-close" onClick={close}>×</button><div className="modal-icon"><Icon name={isEvidence ? 'upload' : kind === 'invite' ? 'users' : 'folder'}/></div><h2>{title}</h2><p>{isEvidence ? `Add files to “${task.title}”.` : 'This is a local prototype form. Nothing will be saved to a server.'}</p>{kind === 'project' && <><label>Project name<input autoFocus placeholder="e.g. Downtown renovation"/></label><label>Client or company<input placeholder="e.g. Turner & Co."/></label></>}{kind === 'task' && <><label>Task name<input autoFocus placeholder="e.g. Upload site photos"/></label><label>Assign to<select defaultValue="Sofia Martinez"><option>Sofia Martinez</option><option>James Diaz</option><option>Marcus Chen</option></select></label><label>Due date<input type="date"/></label></>}{kind === 'invite' && <><label>Email address<input autoFocus placeholder="name@company.com"/></label><label>Role<select defaultValue="Task User"><option>Task User</option><option>Company Administrator</option></select></label></>}{isEvidence && <div className="dropzone"><Icon name="upload" size={24}/><strong>Drop files here</strong><span>or click to select files</span></div>}<div className="modal-actions"><button className="secondary-button" onClick={close}>Cancel</button><button className="primary-button" onClick={() => { if (isEvidence) setUploaded(true); close(); action(isEvidence ? 'Evidence uploaded successfully' : `${title.replace('Create a new ', '').replace('Invite a ', '')} saved locally`) }}>{isEvidence ? 'Upload evidence' : 'Continue'}</button></div></div></div> }
 
 export default App
