@@ -1,5 +1,7 @@
 // Prototype UI uses intentionally flexible local mock data.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useMemo, useState, type ReactNode } from 'react'
 import './App.css'
 
@@ -25,6 +27,7 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
     upload: <><path {...p} d="M12 16V4M8 8l4-4 4 4M5 14v5h14v-5"/></>,
     comment: <><path {...p} d="M20 11.5a7 7 0 0 1-7 7H7l-4 3v-10a7 7 0 0 1 7-7h3a7 7 0 0 1 7 7Z"/></>,
     back: <><path {...p} d="M19 12H5M11 18l-6-6 6-6"/></>,
+    chevron: <path {...p} d="m9 18 6-6-6-6"/>,
   }
   return <svg width={size} height={size} viewBox="0 0 24 24">{paths[name]}</svg>
 }
@@ -34,14 +37,12 @@ const projects = [
   { id: 'maple', name: 'Maple Street Residence', client: 'Private client / Residential', status: 'At risk', progress: 42, tasks: '8 / 19', due: 'Oct 18, 2024', color: 'orange', description: 'Kitchen, living area, and exterior improvements for a private residence.' },
   { id: 'oakridge', name: 'Oakridge Retail Fit-out', client: 'Grove Retail Group', status: 'In progress', progress: 81, tasks: '21 / 26', due: 'Nov 02, 2024', color: 'teal', description: 'Retail fit-out, handover documentation, and warranty collection.' },
 ]
-type Project = (typeof projects)[number]
 const tasks = [
   { id: 1, title: 'Submit electrical inspection certificate', project: 'Riverside Office Renovation', assignee: 'JD', name: 'James Diaz', status: 'Needs review', due: 'Today', tone: 'purple', evidence: 2, description: 'Upload the signed electrical inspection certificate issued after the final inspection.' },
   { id: 2, title: 'Upload final kitchen installation photos', project: 'Maple Street Residence', assignee: 'SM', name: 'Sofia Martinez', status: 'Overdue', due: '2 days ago', tone: 'orange', evidence: 4, description: 'Provide clear photos of the completed kitchen installation from all required angles.' },
   { id: 3, title: 'Confirm HVAC commissioning report', project: 'Riverside Office Renovation', assignee: 'MC', name: 'Marcus Chen', status: 'Submitted', due: 'Oct 16', tone: 'blue', evidence: 1, description: 'Confirm the commissioning report and include the final system readings.' },
   { id: 4, title: 'Add manufacturer warranty documents', project: 'Oakridge Retail Fit-out', assignee: 'AW', name: 'Alex Wong', status: 'In progress', due: 'Oct 20', tone: 'green', evidence: 0, description: 'Collect warranty documentation for installed fixtures and equipment.' },
 ]
-type Task = (typeof tasks)[number]
 
 function App() {
   const [role, setRole] = useState<Role>('admin')
