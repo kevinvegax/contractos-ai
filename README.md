@@ -1,77 +1,24 @@
-# React + TypeScript + Vite
+# Northstar — Evidence workspace foundation
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This repository contains the first vertical slice of the SaaS evidence-management platform: US-001, an isolated company workspace for administrators.
 
-Currently, two official plugins are available:
+## Structure
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `src/` — React dashboard and the product visual system.
+- `api/_lib/db.ts` — pooled Postgres access, transaction context, and JSON helpers.
+- `api/workspaces.ts` — list a user’s workspaces or create one and its initial admin membership.
+- `api/workspace.ts` — read a workspace only after membership authorization; queries run with `app.company_id` set.
+- `migrations/` — ordered SQL migrations. `V2` is the US-001 schema and includes row-level security policies.
 
-## React Compiler
+## Run locally
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+1. Copy the database variables used by `docker-compose.yml` into `.env`.
+2. Start Postgres with `docker compose up -d postgres`.
+3. Apply `migrations/V1__create_migration_demo_items.sql` and `migrations/V2__create_company_workspace.sql` to the database.
+4. Set `DATABASE_URL`, then run `npm run dev`.
 
-Note: This will impact Vite dev & build performances.
+The dashboard has a safe visual fallback when API routes are not running, so the UI can be reviewed with Vite alone. The API uses the deterministic local admin `admin@northstar.build` until an identity provider is connected; production should replace the `x-user-id` development seam with verified session claims.
 
-## Expanding the ESLint configuration
+## Verification
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
+`npm run build` and `npm run lint` are the baseline checks.
