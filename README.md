@@ -9,17 +9,24 @@ This repository contains the first vertical slice of the SaaS evidence-managemen
 - `api/workspaces.ts` — list a user’s workspaces or create one and its initial admin membership.
 - `api/workspace.ts` — read a workspace only after membership authorization; queries run with `app.company_id` set.
 - `api/auth/` — sign-in, session validation, and sign-out handlers.
+- `api/invitations.ts` and `api/invitations/accept.ts` — administrator invite management and single-use acceptance.
 - `migrations/` — ordered SQL migrations. `V2` is the US-001 schema and includes row-level security policies.
 
 ## Run locally
 
 1. Copy the database variables used by `docker-compose.yml` into `.env`.
 2. Start Postgres with `docker compose up -d postgres`.
-3. Apply `migrations/V1__create_migration_demo_items.sql` and `migrations/V2__create_company_workspace.sql` to the database.
-4. Apply `migrations/V3__create_secure_sessions.sql`.
-5. Set `DATABASE_URL`, then run `npm run dev`.
+3. Apply `migrations/V1__create_company_workspace.sql` and `migrations/V2__create_secure_sessions.sql` to the database.
+4. Apply `migrations/V4__create_company_invitations.sql` and `migrations/V5__seed_local_company_workspace.sql`.
+5. Set `DATABASE_URL`, then run `npm run dev`. The Vite development server also mounts the local `/api/*` handlers, so the invitation flow works at `http://localhost:5173`.
 
 The local seeded account is `admin@northstar.build` with password `demo-password`. Change or remove it before production. Sessions expire after 8 hours, are invalidated on sign-out, and use an HTTP-only, same-site cookie. Passwords are scrypt hashes and are never returned by an API.
+
+Invitations expire after 7 days, store only a token hash, can be revoked by an administrator, and can be accepted once. The acceptance URL is sent by the configured transactional email provider.
+
+## Email delivery
+
+Invitation delivery uses Resend’s HTTPS email API. Configure `RESEND_API_KEY`, `RESEND_FROM_EMAIL` (a verified sender/domain), and `APP_URL` in the server environment. For local testing, use `APP_URL=http://localhost:5173`; the recipient must open the link on the same computer. For another device, use a public tunnel URL instead. The invitation is rolled back if the provider rejects the email, so the UI never reports a successful invite that was not delivered. Resend requires an API key, verified domain, and `from`/`to`/`subject`/`html` message fields. See the [Resend send email API](https://resend.com/docs/api-reference/emails/send-email).
 
 ## Verification
 

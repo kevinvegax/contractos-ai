@@ -24,6 +24,12 @@ export async function verifyPassword(password: string, stored: string) {
   return expected.length === derived.length && timingSafeEqual(expected, derived)
 }
 
+export async function hashPassword(password: string) {
+  const salt = randomBytes(16).toString('hex')
+  const derived = await scryptAsync(password, salt, 64) as Buffer
+  return `${salt}:${derived.toString('hex')}`
+}
+
 export async function createSession(userId: string) {
   const token = randomBytes(32).toString('base64url')
   await getPool().query(

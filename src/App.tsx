@@ -7,6 +7,7 @@ type Project = { id: string; name: string; status: string }
 type Activity = { action: string; entity_type: string; created_at: string }
 type WorkspacePayload = { workspace: Workspace; projects: Project[]; activity: Activity[] }
 type User = { id: string; email: string; full_name: string }
+type Invitation = { id: string; email: string; expires_at: string }
 
 const demoWorkspace: WorkspacePayload = {
   workspace: { id: 'demo', name: 'Northstar Construction', slug: 'northstar-construction', role: 'admin' },
@@ -49,6 +50,9 @@ function App() {
   const [data, setData] = useState<WorkspacePayload | null>(null)
   const [active, setActive] = useState('Overview')
   const [showSwitcher, setShowSwitcher] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [inviteMessage, setInviteMessage] = useState('')
   useEffect(() => {
     void getSession().catch(() => null).then((sessionUser) => {
       setUser(sessionUser)
@@ -56,12 +60,31 @@ function App() {
       if (sessionUser) void getWorkspace().then(setData)
     })
   }, [])
+  useEffect(() => {
+    if (data?.workspace.id && data.workspace.id !== 'demo') {
+      void fetch(`/api/invitations?company_id=${data.workspace.id}`).then(async (response) => {
+        if (response.ok) setInvitations((await response.json() as { invitations: Invitation[] }).invitations)
+      })
+    }
+  }, [data?.workspace.id])
   const workspace = data?.workspace ?? demoWorkspace.workspace
   const initials = useMemo(() => workspace.name.split(' ').map((word) => word[0]).slice(0, 2).join(''), [workspace.name])
+  if (window.location.pathname === '/accept-invitation') return <AcceptInvitation />
   if (!authChecked) return <div className="auth-loading"><span className="brand-mark">N</span><span>Loading your secure workspace…</span></div>
   if (!user) return <SignIn onSignedIn={(sessionUser) => { setUser(sessionUser); void getWorkspace().then(setData) }} />
   const projects = data?.projects ?? demoWorkspace.projects
   const activity = data?.activity ?? demoWorkspace.activity
+  async function inviteUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setInviteMessage('')
+    const response = await fetch(`/api/invitations?company_id=${workspace.id}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: inviteEmail }) })
+    const payload = await response.json() as { invitation?: Invitation; acceptance_url?: string; error?: string }
+    if (!response.ok || !payload.invitation) { setInviteMessage(payload.error ?? 'Unable to create invitation.'); return }
+    setInvitations((current) => [payload.invitation!, ...current]); setInviteEmail(''); setInviteMessage(`Invitation sent to ${payload.invitation.email}.`)
+  }
+  async function revokeInvite(id: string) {
+    const response = await fetch(`/api/invitations?company_id=${workspace.id}&id=${id}`, { method: 'DELETE' })
+    if (response.ok) setInvitations((current) => current.filter((invite) => invite.id !== id))
+  }
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -74,6 +97,7 @@ function App() {
     <main className="main-content"><header className="topbar"><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>{active}</strong></div><div className="top-actions"><span className="status-dot" /> All systems operational <button className="help">?</button><span className="top-avatar">{initials}</span></div></header>
       <div className="page-wrap"><section className="welcome"><div><p className="kicker">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>Good morning, Maya<span className="wave">✦</span></h1><p className="subhead">Here’s what’s happening across your company workspace.</p></div><button className="primary-action"><Icon name="plus" /> New project</button></section>
         <section className="security-banner"><div className="security-icon"><Icon name="shield" /></div><div><strong>Company workspace secured</strong><p>Your organization has a private, isolated workspace. Projects, evidence, and team activity are only visible to members of <b>{workspace.name}</b>.</p></div><span className="verified">✓ Verified</span></section>
+        {workspace.role === 'admin' && workspace.id !== 'demo' && <section className="invite-panel"><div><p className="kicker">Team access</p><h2>Invite people to your workspace</h2><p>Invite teammates by email. Each link is private, single-use, and expires in 7 days.</p></div><form onSubmit={(event) => void inviteUser(event)}><input type="email" placeholder="teammate@company.com" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required /><button className="primary-action" type="submit"><Icon name="plus" /> Send invite</button></form>{inviteMessage && <p className="invite-message" role="status">{inviteMessage}</p>}{invitations.length > 0 && <div className="pending-invites"><strong>Pending invitations</strong>{invitations.map((invite) => <div key={invite.id}><span>{invite.email}</span><small>Expires {new Date(invite.expires_at).toLocaleDateString()}</small><button type="button" onClick={() => void revokeInvite(invite.id)}>Revoke</button></div>)}</div>}</section>}
         <div className="section-title"><div><p className="kicker">Your workspace</p><h2>At a glance</h2></div><button className="text-action">View activity <Icon name="arrow" /></button></div>
         <section className="stats-grid"><div className="stat-card"><span className="stat-icon blue"><Icon name="folder" /></span><div><span>Active projects</span><strong>{projects.length}</strong></div><small className="positive">+2 this month</small></div><div className="stat-card"><span className="stat-icon purple"><Icon name="file" /></span><div><span>Evidence files</span><strong>12</strong></div><small>Across all projects</small></div><div className="stat-card"><span className="stat-icon amber"><Icon name="users" /></span><div><span>Team members</span><strong>8</strong></div><small>2 pending invites</small></div></section>
         <div className="content-grid"><section className="card"><div className="card-heading"><div><h3>Recent projects</h3><p>Projects in your company workspace</p></div><button className="icon-button" aria-label="Add project"><Icon name="plus" /></button></div><div className="project-list">{projects.map((project) => <div className="project-row" key={project.id}><span className="project-mark">{project.name.slice(0, 1)}</span><div><strong>{project.name}</strong><span>Updated today</span></div><span className="pill"><i /> Active</span><Icon name="arrow" /></div>)}</div><button className="card-footer">View all projects <Icon name="arrow" /></button></section><section className="card"><div className="card-heading"><div><h3>Recent activity</h3><p>Latest changes in your workspace</p></div></div><div className="activity-list">{activity.map((item, index) => <div className="activity-row" key={`${item.action}-${index}`}><span className={`activity-dot dot-${index}`} /><div><strong>{item.action}</strong><span>{item.entity_type === 'workspace' ? workspace.name : 'Workspace security'} <b>·</b> {item.created_at}</span></div></div>)}</div><button className="card-footer">View full activity <Icon name="arrow" /></button></section></div>
@@ -97,6 +121,19 @@ function SignIn({ onSignedIn }: { onSignedIn: (user: User) => void }) {
     } catch { setError('The sign-in service is unavailable. Please try again.') } finally { setBusy(false) }
   }
   return <main className="signin-shell"><section className="signin-card"><div className="signin-brand"><span className="brand-mark">N</span><span>Northstar</span></div><div className="signin-heading"><p className="kicker">Secure access</p><h1>Welcome back</h1><p>Sign in to access your company workspace and evidence.</p></div><form onSubmit={(event) => void submit(event)}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>{error && <div className="signin-error" role="alert">{error}</div>}<button className="signin-button" type="submit" disabled={busy}>{busy ? 'Signing you in…' : 'Sign in'}<Icon name="arrow" /></button></form><div className="signin-security"><Icon name="shield" /><span>Protected with encrypted sessions<br />Your password is never stored in plain text.</span></div></section></main>
+}
+
+function AcceptInvitation() {
+  const token = new URLSearchParams(window.location.search).get('token') ?? ''
+  const [name, setName] = useState(''); const [password, setPassword] = useState(''); const [error, setError] = useState(''); const [done, setDone] = useState(false)
+  async function accept(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError('')
+    const response = await fetch('/api/invitations/accept', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, full_name: name, password }) })
+    const payload = await response.json() as { error?: string }
+    if (!response.ok) { setError(payload.error ?? 'Unable to accept invitation.'); return }
+    setDone(true); window.setTimeout(() => { window.location.href = '/' }, 700)
+  }
+  return <main className="signin-shell"><section className="signin-card"><div className="signin-brand"><span className="brand-mark">N</span><span>Northstar</span></div>{done ? <div className="signin-heading"><p className="kicker">You’re in</p><h1>Invitation accepted</h1><p>Your company workspace is ready. Taking you there now…</p></div> : <><div className="signin-heading"><p className="kicker">Workspace invitation</p><h1>Join your team</h1><p>Create your secure account to access the company workspace.</p></div><form onSubmit={(event) => void accept(event)}><label>Full name<input value={name} onChange={(event) => setName(event.target.value)} required /></label><label>Create password<input type="password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} required /><small className="password-hint">Use at least 8 characters.</small></label>{error && <div className="signin-error" role="alert">{error}</div>}<button className="signin-button" type="submit">Accept invitation <Icon name="arrow" /></button></form></>}</section></main>
 }
 
 export default App
