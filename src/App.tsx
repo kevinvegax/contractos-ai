@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import './App.css'
 
 type Workspace = { id: string; name: string; slug: string; role: 'admin' | 'member' }
 type Project = { id: string; name: string; status: string }
 type Activity = { action: string; entity_type: string; created_at: string }
 type WorkspacePayload = { workspace: Workspace; projects: Project[]; activity: Activity[] }
+type User = { id: string; email: string; full_name: string }
 
 const demoWorkspace: WorkspacePayload = {
   workspace: { id: 'demo', name: 'Northstar Construction', slug: 'northstar-construction', role: 'admin' },
@@ -25,6 +27,13 @@ async function getWorkspace(): Promise<WorkspacePayload> {
   } catch { return demoWorkspace }
 }
 
+async function getSession(): Promise<User | null> {
+  const response = await fetch('/api/auth/session')
+  if (!response.ok) return null
+  const payload = await response.json() as { user: User }
+  return payload.user
+}
+
 function Icon({ name }: { name: 'grid' | 'folder' | 'file' | 'users' | 'settings' | 'shield' | 'plus' | 'arrow' }) {
   const paths = {
     grid: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z', folder: 'M3 6.5h7l1.6 2H21v9.5H3z', file: 'M6 3h8l4 4v14H6zM14 3v5h5',
@@ -35,12 +44,22 @@ function Icon({ name }: { name: 'grid' | 'folder' | 'file' | 'users' | 'settings
 }
 
 function App() {
+  const [user, setUser] = useState<User | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
   const [data, setData] = useState<WorkspacePayload | null>(null)
   const [active, setActive] = useState('Overview')
   const [showSwitcher, setShowSwitcher] = useState(false)
-  useEffect(() => { void getWorkspace().then(setData) }, [])
+  useEffect(() => {
+    void getSession().catch(() => null).then((sessionUser) => {
+      setUser(sessionUser)
+      setAuthChecked(true)
+      if (sessionUser) void getWorkspace().then(setData)
+    })
+  }, [])
   const workspace = data?.workspace ?? demoWorkspace.workspace
   const initials = useMemo(() => workspace.name.split(' ').map((word) => word[0]).slice(0, 2).join(''), [workspace.name])
+  if (!authChecked) return <div className="auth-loading"><span className="brand-mark">N</span><span>Loading your secure workspace…</span></div>
+  if (!user) return <SignIn onSignedIn={(sessionUser) => { setUser(sessionUser); void getWorkspace().then(setData) }} />
   const projects = data?.projects ?? demoWorkspace.projects
   const activity = data?.activity ?? demoWorkspace.activity
 
@@ -50,7 +69,7 @@ function App() {
       <button className="workspace-switcher" onClick={() => setShowSwitcher(!showSwitcher)}><span className="workspace-avatar">NC</span><span className="workspace-name"><strong>{workspace.name}</strong><small>Company workspace</small></span><span className="chevron">⌄</span></button>
       {showSwitcher && <div className="switcher-popover"><strong>{workspace.name}</strong><span>Personalized workspace</span><button onClick={() => setShowSwitcher(false)}>Workspace settings</button></div>}
       <nav className="nav-list" aria-label="Main navigation"><p className="nav-label">Workspace</p>{([['Overview', 'grid'], ['Projects', 'folder'], ['Evidence', 'file'], ['Team', 'users']] as const).map(([label, icon]) => <button key={label} className={`nav-item ${active === label ? 'active' : ''}`} onClick={() => setActive(label)}><Icon name={icon} />{label}{label === 'Evidence' && <span className="nav-count">12</span>}</button>)}<p className="nav-label nav-label-lower">Manage</p><button className={`nav-item ${active === 'Settings' ? 'active' : ''}`} onClick={() => setActive('Settings')}><Icon name="settings" />Settings</button></nav>
-      <div className="sidebar-bottom"><div className="secure-note"><Icon name="shield" /><div><strong>Your data is private</strong><span>Only your company can access it.</span></div></div><div className="user-row"><span className="user-avatar">MR</span><div><strong>Maya Rodriguez</strong><span>Administrator</span></div><span className="more">•••</span></div></div>
+      <div className="sidebar-bottom"><div className="secure-note"><Icon name="shield" /><div><strong>Your data is private</strong><span>Only your company can access it.</span></div></div><button className="user-row" onClick={() => { void fetch('/api/auth/signout', { method: 'POST' }).then(() => window.location.reload()) }}><span className="user-avatar">{initials}</span><div><strong>{user.full_name}</strong><span>Administrator · Sign out</span></div><span className="more">•••</span></button></div>
     </aside>
     <main className="main-content"><header className="topbar"><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>{active}</strong></div><div className="top-actions"><span className="status-dot" /> All systems operational <button className="help">?</button><span className="top-avatar">{initials}</span></div></header>
       <div className="page-wrap"><section className="welcome"><div><p className="kicker">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>Good morning, Maya<span className="wave">✦</span></h1><p className="subhead">Here’s what’s happening across your company workspace.</p></div><button className="primary-action"><Icon name="plus" /> New project</button></section>
@@ -61,6 +80,23 @@ function App() {
         <footer className="page-footer"><span>Northstar workspace</span><span><span className="tiny-dot" /> Data isolated by company</span><span>© 2024 Northstar</span></footer>
       </div></main>
   </div>
+}
+
+function SignIn({ onSignedIn }: { onSignedIn: (user: User) => void }) {
+  const [email, setEmail] = useState('admin@northstar.build')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(''); setBusy(true)
+    try {
+      const response = await fetch('/api/auth/signin', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password }) })
+      const payload = await response.json() as { user?: User; error?: string }
+      if (!response.ok || !payload.user) { setError(payload.error ?? 'Unable to sign in.'); return }
+      onSignedIn(payload.user)
+    } catch { setError('The sign-in service is unavailable. Please try again.') } finally { setBusy(false) }
+  }
+  return <main className="signin-shell"><section className="signin-card"><div className="signin-brand"><span className="brand-mark">N</span><span>Northstar</span></div><div className="signin-heading"><p className="kicker">Secure access</p><h1>Welcome back</h1><p>Sign in to access your company workspace and evidence.</p></div><form onSubmit={(event) => void submit(event)}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>{error && <div className="signin-error" role="alert">{error}</div>}<button className="signin-button" type="submit" disabled={busy}>{busy ? 'Signing you in…' : 'Sign in'}<Icon name="arrow" /></button></form><div className="signin-security"><Icon name="shield" /><span>Protected with encrypted sessions<br />Your password is never stored in plain text.</span></div></section></main>
 }
 
 export default App

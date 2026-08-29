@@ -1,7 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { readJson, sendJson, withUserContext } from './_lib/db.js'
-
-const DEMO_USER_ID = '00000000-0000-0000-0000-000000000001'
+import { requireSession } from './_lib/auth.js'
 
 export default async function handler(request: IncomingMessage, response: ServerResponse) {
   if (request.method !== 'GET' && request.method !== 'POST') {
@@ -10,8 +9,10 @@ export default async function handler(request: IncomingMessage, response: Server
     return
   }
 
-  const userId = request.headers['x-user-id']?.toString() || DEMO_USER_ID
   try {
+    const user = await requireSession(request, response)
+    if (!user) return
+    const userId = user.id
     if (request.method === 'POST') {
       const body = await readJson(request)
       const name = typeof body.name === 'string' ? body.name.trim() : ''

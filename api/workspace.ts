@@ -1,7 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { sendJson, withCompanyContext, withUserContext } from './_lib/db.js'
-
-const DEMO_USER_ID = '00000000-0000-0000-0000-000000000001'
+import { requireSession } from './_lib/auth.js'
 
 export default async function handler(request: IncomingMessage, response: ServerResponse) {
   if (request.method !== 'GET') {
@@ -11,10 +10,12 @@ export default async function handler(request: IncomingMessage, response: Server
   }
   const url = new URL(request.url ?? '/', 'http://localhost')
   const companyId = url.searchParams.get('company_id')
-  const userId = request.headers['x-user-id']?.toString() || DEMO_USER_ID
   if (!companyId) { sendJson(response, 400, { error: 'company_id is required' }); return }
 
   try {
+    const user = await requireSession(request, response)
+    if (!user) return
+    const userId = user.id
     const membership = await withUserContext(userId, (client) => client.query(
       `SELECT c.id, c.name, c.slug, cm.role, c.created_at
        FROM companies c JOIN company_memberships cm ON cm.company_id = c.id
