@@ -16,7 +16,7 @@ This repository contains the first vertical slice of the SaaS evidence-managemen
 
 1. Copy the database variables used by `docker-compose.yml` into `.env`.
 2. Start Postgres with `docker compose up -d postgres`.
-3. Apply migrations V1 through V6 in filename order.
+3. Apply migrations V1 through V9 in filename order.
 5. Set `DATABASE_URL`, then run `npm run dev`. The Vite development server also mounts the local `/api/*` handlers, so the invitation flow works at `http://localhost:5173`.
 
 The local seeded account is `admin@northstar.build` with password `demo-password`. Change or remove it before production. Sessions expire after 8 hours, are invalidated on sign-out, and use an HTTP-only, same-site cookie. Passwords are scrypt hashes and are never returned by an API.
