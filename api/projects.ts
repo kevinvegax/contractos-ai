@@ -4,6 +4,7 @@ import { requireSession } from './_lib/auth.js'
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
+const projectStatuses = ['draft', 'active', 'on_hold', 'completed', 'archived'] as const
 
 export default async function handler(request: IncomingMessage, response: ServerResponse) {
   if (request.method !== 'POST' && request.method !== 'PATCH') { response.setHeader('allow', 'POST, PATCH'); sendJson(response, 405, { error: 'Method not allowed' }); return }
@@ -12,8 +13,9 @@ export default async function handler(request: IncomingMessage, response: Server
   const companyId = new URL(request.url ?? '/', 'http://localhost').searchParams.get('company_id')
   if (!companyId || !uuidPattern.test(companyId)) { sendJson(response, 400, { error: 'A valid company_id is required' }); return }
   try {
-    const membership = await getPool().query(`SELECT 1 FROM company_memberships WHERE company_id = $1::uuid AND user_id = $2::uuid AND role IN ('admin', 'project_manager') AND status = 'active'`, [companyId, user.id])
+    const membership = await getPool().query(`SELECT role FROM company_memberships WHERE company_id = $1::uuid AND user_id = $2::uuid AND role IN ('admin', 'project_manager') AND status = 'active'`, [companyId, user.id])
     if (!membership.rows[0]) { sendJson(response, 403, { error: 'Only active company administrators or project managers can manage projects' }); return }
+    const isAdmin = membership.rows[0].role === 'admin'
     const body = await readJson(request)
     const projectId = new URL(request.url ?? '/', 'http://localhost').searchParams.get('id')
     const name = typeof body.name === 'string' ? body.name.trim() : ''
@@ -22,7 +24,7 @@ export default async function handler(request: IncomingMessage, response: Server
     const requirements = typeof body.requirements === 'string' ? body.requirements.trim() : ''
     const startDate = typeof body.start_date === 'string' && body.start_date ? body.start_date : null
     const dueDate = typeof body.due_date === 'string' && body.due_date ? body.due_date : null
-    const status = body.status === 'draft' || body.status === 'active' ? body.status : ''
+    const status = typeof body.status === 'string' && projectStatuses.includes(body.status as typeof projectStatuses[number]) ? body.status : ''
     if (request.method === 'PATCH' && (!projectId || !uuidPattern.test(projectId))) { sendJson(response, 400, { error: 'A valid project id is required' }); return }
     if (name.length < 2) { sendJson(response, 400, { error: 'Project name must be at least 2 characters' }); return }
     if (!status) { sendJson(response, 400, { error: 'Choose Draft or Active' }); return }
@@ -30,12 +32,18 @@ export default async function handler(request: IncomingMessage, response: Server
     if (startDate && dueDate && dueDate < startDate) { sendJson(response, 400, { error: 'Due date cannot be before the start date' }); return }
     const result = await withCompanyContext(companyId, async (client) => {
       if (request.method === 'PATCH') {
+        const current = await client.query(`SELECT status FROM projects WHERE id = $1::uuid`, [projectId])
+        if (!current.rows[0]) return null
+        const currentStatus = current.rows[0].status as string
+        if (currentStatus === 'archived' && status === 'archived') throw new Error('Archived projects are read-only. Restore the project before editing it.')
+        if (currentStatus === 'archived' && !isAdmin) throw new Error('Only an administrator can restore an archived project')
         const updated = await client.query(
           `UPDATE projects SET name = $1, description = $2, objectives = $3, start_date = $4::date, due_date = $5::date, requirements = $6, status = $7
            WHERE id = $8::uuid RETURNING id, name, description, objectives, start_date, due_date, requirements, status, created_at`,
           [name, description, objectives, startDate, dueDate, requirements, status, projectId],
         )
         if (!updated.rows[0]) return null
+        if (currentStatus !== status) await client.query(`INSERT INTO activity_records (company_id, actor_id, action, entity_type, entity_id) VALUES ($1::uuid, $2::uuid, $3, 'project', $4::uuid)`, [companyId, user.id, `Changed project status from ${currentStatus} to ${status}`, projectId])
         await client.query(`INSERT INTO activity_records (company_id, actor_id, action, entity_type, entity_id) VALUES ($1::uuid, $2::uuid, $3, 'project', $4::uuid)`, [companyId, user.id, 'Updated project details', projectId])
         return updated
       }
