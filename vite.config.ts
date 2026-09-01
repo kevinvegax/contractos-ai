@@ -9,6 +9,7 @@ import signin from './api/auth/signin.js'
 import signout from './api/auth/signout.js'
 import workspace from './api/workspace.js'
 import workspaces from './api/workspaces.js'
+import projects from './api/projects.js'
 
 type ApiHandler = (request: IncomingMessage, response: ServerResponse) => Promise<void>
 
@@ -20,6 +21,7 @@ const apiRoutes: Record<string, ApiHandler> = {
   '/api/invitations/accept': acceptInvitation,
   '/api/workspace': workspace,
   '/api/workspaces': workspaces,
+  '/api/projects': projects,
 }
 
 // https://vite.dev/config/

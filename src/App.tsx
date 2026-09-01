@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import './App.css'
 
-type Workspace = { id: string; name: string; slug: string; role: 'admin' | 'member' }
-type Project = { id: string; name: string; status: string }
+type Workspace = { id: string; name: string; slug: string; role: 'admin' | 'project_manager' | 'member' }
+type Project = { id: string; name: string; description?: string; objectives?: string; start_date?: string | null; due_date?: string | null; requirements?: string; status: 'draft' | 'active'; created_at?: string }
 type Activity = { action: string; entity_type: string; created_at: string }
 type WorkspacePayload = { workspace: Workspace; projects: Project[]; activity: Activity[] }
 type User = { id: string; email: string; full_name: string }
@@ -48,6 +48,9 @@ function App() {
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [inviteMessage, setInviteMessage] = useState('')
   const [team, setTeam] = useState<TeamMember[]>([])
+  const [showProjectForm, setShowProjectForm] = useState(false)
+  const [projectMessage, setProjectMessage] = useState('')
+  const [projectBusy, setProjectBusy] = useState(false)
 
   useEffect(() => {
     void getSession().catch(() => null).then((sessionUser) => {
@@ -76,6 +79,7 @@ function App() {
   const initials = workspace.name.split(' ').map((word) => word[0]).slice(0, 2).join('')
   const projects = data.projects
   const activity = data.activity
+  const canCreateProject = workspace.role === 'admin' || workspace.role === 'project_manager'
 
   async function inviteUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setInviteMessage('')
@@ -96,6 +100,18 @@ function App() {
     if (response.ok) setTeam((current) => current.map((item) => item.id === member.id ? { ...item, status } : item))
   }
 
+  async function createProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setProjectMessage(''); setProjectBusy(true)
+    const form = new FormData(event.currentTarget)
+    try {
+      const response = await fetch(`/api/projects?company_id=${workspace.id}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: form.get('name'), description: form.get('description'), objectives: form.get('objectives'), start_date: form.get('start_date'), due_date: form.get('due_date'), requirements: form.get('requirements'), status: form.get('status') }) })
+      const payload = await response.json() as { project?: Project; error?: string }
+      if (!response.ok || !payload.project) { setProjectMessage(payload.error ?? 'Unable to create project.'); return }
+      setData((current) => current ? { ...current, projects: [payload.project!, ...current.projects] } : current)
+      setShowProjectForm(false)
+    } catch { setProjectMessage('The project service is unavailable. Please try again.') } finally { setProjectBusy(false) }
+  }
+
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark">N</span><span>Northstar</span></div>
@@ -105,12 +121,13 @@ function App() {
       <div className="sidebar-bottom"><div className="secure-note"><Icon name="shield" /><div><strong>Your data is private</strong><span>Only your company can access it.</span></div></div><button className="user-row" onClick={() => { void fetch('/api/auth/signout', { method: 'POST' }).then(() => window.location.reload()) }}><span className="user-avatar">{initials}</span><div><strong>{user.full_name}</strong><span>Administrator · Sign out</span></div><span className="more">•••</span></button></div>
     </aside>
     <main className="main-content"><header className="topbar"><div className="breadcrumb"><span>Workspace</span><b>/</b><strong>{active}</strong></div><div className="top-actions"><span className="status-dot" /> All systems operational <button className="help">?</button><span className="top-avatar">{initials}</span></div></header>
-      <div className="page-wrap"><section className="welcome"><div><p className="kicker">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>Good morning, Maya<span className="wave">✦</span></h1><p className="subhead">Here’s what’s happening across your company workspace.</p></div><button className="primary-action"><Icon name="plus" /> New project</button></section>
+      <div className="page-wrap"><section className="welcome"><div><p className="kicker">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p><h1>Good morning, Maya<span className="wave">✦</span></h1><p className="subhead">Here’s what’s happening across your company workspace.</p></div>{canCreateProject && <button className="primary-action" onClick={() => { setProjectMessage(''); setShowProjectForm(true) }}><Icon name="plus" /> New project</button>}</section>
+        {showProjectForm && <div className="modal-backdrop"><section className="project-modal" role="dialog" aria-modal="true" aria-labelledby="new-project-title"><div className="modal-heading"><div><p className="kicker">Project setup</p><h2 id="new-project-title">Create a project</h2><p>Define the work your company workspace needs to track.</p></div><button className="modal-close" type="button" aria-label="Close" onClick={() => setShowProjectForm(false)}>×</button></div><form onSubmit={(event) => void createProject(event)}><label>Project name<input name="name" placeholder="e.g. Riverside renovation" required minLength={2} autoFocus /></label><label>Description<textarea name="description" placeholder="What is this project about?" rows={3} /></label><div className="form-two-column"><label>Start date<input type="date" name="start_date" /></label><label>Due date<input type="date" name="due_date" /></label></div><label>Objectives<textarea name="objectives" placeholder="List the outcomes you want to achieve" rows={3} /></label><label>Requirements<textarea name="requirements" placeholder="List key requirements, one per line" rows={3} /></label><fieldset><legend>Save as</legend><label><input type="radio" name="status" value="draft" /> Draft</label><label><input type="radio" name="status" value="active" defaultChecked /> Active</label></fieldset>{projectMessage && <div className="signin-error" role="alert">{projectMessage}</div>}<div className="modal-actions"><button className="secondary-action" type="button" onClick={() => setShowProjectForm(false)}>Cancel</button><button className="primary-action" type="submit" disabled={projectBusy}>{projectBusy ? 'Creating…' : 'Create project'}<Icon name="arrow" /></button></div></form></section></div>}
         {workspace.role === 'admin' && <section className="invite-panel"><div><p className="kicker">Team access</p><h2>Invite people to your workspace</h2><p>Invite teammates by email. Each link is private, single-use, and expires in 7 days.</p></div><form onSubmit={(event) => void inviteUser(event)}><input type="email" placeholder="teammate@company.com" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required /><button className="primary-action" type="submit"><Icon name="plus" /> Send invite</button></form>{inviteMessage && <p className="invite-message" role="status">{inviteMessage}</p>}{invitations.length > 0 && <div className="pending-invites"><strong>Pending invitations</strong>{invitations.map((invite) => <div key={invite.id}><span>{invite.email}</span><small>Expires {new Date(invite.expires_at).toLocaleDateString()}</small><button type="button" onClick={() => void revokeInvite(invite.id)}>Revoke</button></div>)}</div>}</section>}
         {workspace.role === 'admin' && <section className="team-panel"><div className="team-heading"><div><p className="kicker">Workspace access</p><h2>Company users</h2><p>Deactivate access without deleting project or task history.</p></div><span>{team.length} members</span></div>{team.map((member) => <div className="team-member" key={member.id}><span className="user-avatar">{member.full_name.split(' ').map((word) => word[0]).slice(0, 2).join('')}</span><div><strong>{member.full_name}</strong><small>{member.email} · {member.role}</small></div><span className={`member-status ${member.status}`}>{member.status}</span><button type="button" onClick={() => void setMemberStatus(member)}>{member.status === 'active' ? 'Deactivate' : 'Reactivate'}</button></div>)}</section>}
         <div className="section-title"><div><p className="kicker">Your workspace</p><h2>At a glance</h2></div><button className="text-action">View activity <Icon name="arrow" /></button></div>
-        <section className="stats-grid"><div className="stat-card"><span className="stat-icon blue"><Icon name="folder" /></span><div><span>Active projects</span><strong>{projects.length}</strong></div><small className="positive">+2 this month</small></div><div className="stat-card"><span className="stat-icon purple"><Icon name="file" /></span><div><span>Evidence files</span><strong>12</strong></div><small>Across all projects</small></div><div className="stat-card"><span className="stat-icon amber"><Icon name="users" /></span><div><span>Team members</span><strong>8</strong></div><small>2 pending invites</small></div></section>
-        <div className="content-grid"><section className="card"><div className="card-heading"><div><h3>Recent projects</h3><p>Projects in your company workspace</p></div><button className="icon-button" aria-label="Add project"><Icon name="plus" /></button></div><div className="project-list">{projects.map((project) => <div className="project-row" key={project.id}><span className="project-mark">{project.name.slice(0, 1)}</span><div><strong>{project.name}</strong><span>Updated today</span></div><span className="pill"><i /> Active</span><Icon name="arrow" /></div>)}</div><button className="card-footer">View all projects <Icon name="arrow" /></button></section><section className="card"><div className="card-heading"><div><h3>Recent activity</h3><p>Latest changes in your workspace</p></div></div><div className="activity-list">{activity.map((item, index) => <div className="activity-row" key={`${item.action}-${index}`}><span className={`activity-dot dot-${index}`} /><div><strong>{item.action}</strong><span>{item.entity_type === 'workspace' ? workspace.name : 'Workspace security'} <b>·</b> {item.created_at}</span></div></div>)}</div><button className="card-footer">View full activity <Icon name="arrow" /></button></section></div>
+        <section className="stats-grid"><div className="stat-card"><span className="stat-icon blue"><Icon name="folder" /></span><div><span>Active projects</span><strong>{projects.filter((project) => project.status === 'active').length}</strong></div><small className="positive">+2 this month</small></div><div className="stat-card"><span className="stat-icon purple"><Icon name="file" /></span><div><span>Evidence files</span><strong>12</strong></div><small>Across all projects</small></div><div className="stat-card"><span className="stat-icon amber"><Icon name="users" /></span><div><span>Team members</span><strong>8</strong></div><small>2 pending invites</small></div></section>
+        <div className="content-grid"><section className="card"><div className="card-heading"><div><h3>Recent projects</h3><p>Projects in your company workspace</p></div>{canCreateProject && <button className="icon-button" aria-label="Add project" onClick={() => { setProjectMessage(''); setShowProjectForm(true) }}><Icon name="plus" /></button>}</div><div className="project-list">{projects.map((project) => <div className="project-row" key={project.id}><span className="project-mark">{project.name.slice(0, 1)}</span><div><strong>{project.name}</strong><span>{project.created_at ? `Created ${new Date(project.created_at).toLocaleDateString()}` : 'Created today'}</span></div><span className={`pill ${project.status}`}><i /> {project.status === 'draft' ? 'Draft' : 'Active'}</span><Icon name="arrow" /></div>)}</div><button className="card-footer">View all projects <Icon name="arrow" /></button></section><section className="card"><div className="card-heading"><div><h3>Recent activity</h3><p>Latest changes in your workspace</p></div></div><div className="activity-list">{activity.map((item, index) => <div className="activity-row" key={`${item.action}-${index}`}><span className={`activity-dot dot-${index}`} /><div><strong>{item.action}</strong><span>{item.entity_type === 'workspace' ? workspace.name : 'Workspace security'} <b>·</b> {item.created_at}</span></div></div>)}</div><button className="card-footer">View full activity <Icon name="arrow" /></button></section></div>
         <footer className="page-footer"><span>Northstar workspace</span><span><span className="tiny-dot" /> Data isolated by company</span><span>© 2024 Northstar</span></footer>
       </div></main>
   </div>
