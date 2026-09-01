@@ -48,5 +48,5 @@ export default async function handler(request: IncomingMessage, response: Server
     }, user.id)
     if (!result) { sendJson(response, 404, { error: 'Project not found in this company workspace' }); return }
     sendJson(response, request.method === 'PATCH' ? 200 : 201, { project: result.rows[0] })
-  } catch (error) { sendJson(response, 500, { error: error instanceof Error ? error.message : 'Unable to create project' }) }
+  } catch (error) { sendJson(response, 500, { error: error instanceof Error ? error.message : 'Unable to manage project' }) }
 }
