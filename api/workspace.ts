@@ -23,7 +23,7 @@ export default async function handler(request: IncomingMessage, response: Server
     if (!membership.rows[0]) { sendJson(response, 403, { error: 'Workspace access denied' }); return }
     const data = await withCompanyContext(companyId, async (client) => {
       const [projects, activity] = await Promise.all([
-        client.query(`SELECT id, name, status, created_at FROM projects ORDER BY created_at DESC`),
+        client.query(`SELECT id, name, description, objectives, start_date, due_date, requirements, status, created_at FROM projects ORDER BY created_at DESC`),
         client.query(`SELECT action, entity_type, created_at FROM activity_records ORDER BY created_at DESC LIMIT 8`),
       ])
       return { projects: projects.rows, activity: activity.rows }
